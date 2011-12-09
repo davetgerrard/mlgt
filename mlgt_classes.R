@@ -124,141 +124,144 @@ mlgt.mlgtDesign  <- function(designObject)  {
 
 ##########ITERATIONS
 
-markerSampleList <- list()
-runSummaryTable <- data.frame()
-alleleDb <- list()
+	markerSampleList <- list()
+	runSummaryTable <- data.frame()
+	alleleDb <- list()
 
-for(thisMarker in names(designObject@markers)) {
-#for(thisMarker in names(markerMap)) {
-#for(thisMarker in names(markerMap)[1:2]) {	# temp to finish off
+	for(thisMarker in names(designObject@markers)) {
+	#for(thisMarker in names(markerMap)) {
+	#for(thisMarker in names(markerMap)[1:2]) {	# temp to finish off
 
-cat(paste(thisMarker,"\n"))
-#thisMarker <- "DQA1_E2"
+	cat(paste(thisMarker,"\n"))
+	#thisMarker <- "DQA1_E2"
 
-## might need to combine all these to return a single item.
-summaryList <- list()
-summaryTable <- data.frame()
-markerSequenceCount <- list("noSeq"=0)		#  BUG? requires some data otherwise won't sum properly with localSequenceCount.
-alleleList <- list() 
-variantList <- list()
-alleleCount <- 1
-markerSeq <- unlist(getSequence(markerList[[thisMarker]],as.string=T))
+	## might need to combine all these to return a single item.
+	summaryList <- list()
+	summaryTable <- data.frame()
+	markerSequenceCount <- list("noSeq"=0)		#  BUG? requires some data otherwise won't sum properly with localSequenceCount.
+	alleleList <- list() 
+	variantList <- list()
+	alleleCount <- 1
+	markerSeq <- unlist(getSequence(designObject@markers[[thisMarker]],as.string=T))
 
-for(thisSample in designObject@samples) {
-#for(thisSample in names(pairedSampleMap)[1:4]) {
-	#print(thisSample)
+	for(thisSample in designObject@samples) {
+		#for(thisSample in names(pairedSampleMap)[1:4]) {
+			#print(thisSample)
 
-	testPairSeqList <- intersect(pairedSampleMap[[thisSample]],union(fMarkerMap[[thisMarker]], rMarkerMap[[thisMarker]]))
-	#testPairSeqList <- intersect(pairedSampleMap[[thisSample]], markerMap[[thisMarker]])
-	#testPairSeqList <- intersect(sampleMap[[thisSample]], markerMap[[thisMarker]])
-
-
-seqTable <- data.frame()
-localAlleleNames <- c("NA","NA","NA")
-localAlleleFreqs <- c(0,0,0)
-
-## go through all seq's mapped to this marker/sample pair.
-## extract the corresponding sequence delimited by the top blast hits on the primers.  IS THIS THE BEST WAY?
-##		Simple improvement: minimum blast hit length to primer to keep. 
-
-## internal Function
-
-recordNoSeqs <- function(summaryTable)  {		# to record no seqs before skipping out. 
-		summaryRow <- data.frame(marker=thisMarker, sample=thisSample, numbSeqs=0,numbVars=0,
-			varName.1="NA", varFreq.1= 0,
-			varName.2="NA", varFreq.2= 0,
-			varName.3="NA", varFreq.3= 0)
-		summaryTable <- rbind(summaryTable, summaryRow)
-		return(summaryTable)
-}
+			testPairSeqList <- intersect(pairedSampleMap[[thisSample]],union(fMarkerMap[[thisMarker]], rMarkerMap[[thisMarker]]))
+			#testPairSeqList <- intersect(pairedSampleMap[[thisSample]], markerMap[[thisMarker]])
+			#testPairSeqList <- intersect(sampleMap[[thisSample]], markerMap[[thisMarker]])
 
 
+		seqTable <- data.frame()
+		localAlleleNames <- c("NA","NA","NA")
+		localAlleleFreqs <- c(0,0,0)
 
-if(length(testPairSeqList) < 1) {
-	#summaryList[[thisMarker]][[thisSample]] <- NA	
-	summaryTable  <- recordNoSeqs(summaryTable)
-	next ;	# skip to next sample
-} 
+		## go through all seq's mapped to this marker/sample pair.
+		## extract the corresponding sequence delimited by the top blast hits on the primers.  IS THIS THE BEST WAY?
+		##		Simple improvement: minimum blast hit length to primer to keep. 
 
+		## internal Function
 
-seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
-
-
-# if no sequences returned, nothing to process. 
-if(nrow(seqTable) < 1 )  {
-	summaryTable  <- recordNoSeqs(summaryTable)
-	#summaryList[[thisMarker]][[thisSample]] <- NA	
-	next ;		# go to next sample.
-}
-
-
-
-
-#localSequenceMap <- split(seqTable[,2], seqTable[,1])
-
-#localSequenceCount <- lapply(localSequenceMap , length)  # list named by sequence with counts.
-#localSequenceCount <- localSequenceCount[order(as.numeric(localSequenceCount), decreasing=T)]
-
-## test if variants are novel. 
-## Give allele names?  
-## Do with first three for now. 
-
-
-alToRecord <- min(3,nrow(seqTable))
-if(alToRecord > 0)  {
-	for (a in 1:alToRecord )  {
-		if(is.null(variantList[[seqTable$var[a]]]))  {    	# novel
-			alleleName <- paste(thisMarker, alleleCount,sep=".")	
-			variantList[[seqTable$var[a]]] <- alleleName
-			localAlleleNames[a] <- alleleName 
-			localAlleleFreqs[a] <- seqTable$count[a]
-			alleleCount <- alleleCount + 1
-		} else  {										# pre-existing alllele
-			localAlleleNames[a] <- variantList[[seqTable$var[a]]]
-			localAlleleFreqs[a] <- seqTable$count[a]		
+		recordNoSeqs <- function(summaryTable)  {		# to record no seqs before skipping out. 
+				summaryRow <- data.frame(marker=thisMarker, sample=thisSample, numbSeqs=0,numbVars=0,
+					varName.1="NA", varFreq.1= 0,
+					varName.2="NA", varFreq.2= 0,
+					varName.3="NA", varFreq.3= 0)
+				summaryTable <- rbind(summaryTable, summaryRow)
+				return(summaryTable)
 		}
+
+
+
+		if(length(testPairSeqList) < 1) {
+			#summaryList[[thisMarker]][[thisSample]] <- NA	
+			summaryTable  <- recordNoSeqs(summaryTable)
+			next ;	# skip to next sample
+		} 
+
+
+		seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
+
+
+		# if no sequences returned, nothing to process. 
+		if(nrow(seqTable) < 1 )  {
+			summaryTable  <- recordNoSeqs(summaryTable)
+			#summaryList[[thisMarker]][[thisSample]] <- NA	
+			next ;		# go to next sample.
+		}
+
+
+
+
+		#localSequenceMap <- split(seqTable[,2], seqTable[,1])
+
+		#localSequenceCount <- lapply(localSequenceMap , length)  # list named by sequence with counts.
+		#localSequenceCount <- localSequenceCount[order(as.numeric(localSequenceCount), decreasing=T)]
+
+		## test if variants are novel. 
+		## Give allele names?  
+		## Do with first three for now. 
+
+
+		alToRecord <- min(3,nrow(seqTable))
+		if(alToRecord > 0)  {
+			for (a in 1:alToRecord )  {
+				if(is.null(variantList[[seqTable$var[a]]]))  {    	# novel
+					alleleName <- paste(thisMarker, alleleCount,sep=".")	
+					variantList[[seqTable$var[a]]] <- alleleName
+					localAlleleNames[a] <- alleleName 
+					localAlleleFreqs[a] <- seqTable$count[a]
+					alleleCount <- alleleCount + 1
+				} else  {										# pre-existing alllele
+					localAlleleNames[a] <- variantList[[seqTable$var[a]]]
+					localAlleleFreqs[a] <- seqTable$count[a]		
+				}
+			}
+		}
+
+
+		# sequence correction?  
+
+
+		# compile stats
+
+		if(nrow(seqTable) >0 )  {	# cannot allow assignment from empty list as messes up class of list for remaining iterations
+			summaryList[[thisMarker]] <- list()
+			summaryList[[thisMarker]][[thisSample]] <- seqTable
+		}
+
+		summaryRow <- data.frame(marker=thisMarker, sample=thisSample, numbSeqs=sum(seqTable$count),numbVars=nrow(seqTable),
+					varName.1=localAlleleNames[1], varFreq.1= localAlleleFreqs[1],
+					varName.2=localAlleleNames[2], varFreq.2= localAlleleFreqs[2],
+					varName.3=localAlleleNames[3], varFreq.3= localAlleleFreqs[3])
+		summaryTable <- rbind(summaryTable, summaryRow)
+
+		#sequence count across samples? 
+		# need to sum from summaryTable or from summaryList.
+		#markerSequenceCount <- 
+		#as.list(colSums(merge(m, n, all = TRUE), na.rm = TRUE))  # not working
+		localSequenceCount <- as.list(seqTable$count)
+		names(localSequenceCount) <- seqTable$var
+		markerSequenceCount   <- as.list(colSums(merge(markerSequenceCount  , localSequenceCount,  all = TRUE), na.rm = TRUE))
+		# might need to instantiate the markerSequenceCount if empty. 
+
+
+
+	}  # end of sample loop
+
+	markerSampleList[[thisMarker]] <- summaryTable
+	runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
+					minVariantLength=min(nchar(names(markerSequenceCount))), 
+					maxVariantLength=max(nchar(names(markerSequenceCount))),
+					minAlleleLength=min(nchar(names(variantList))), maxAlleleLength=max(nchar(names(variantList))))
+	runSummaryTable <- rbind(runSummaryTable, runSummaryRow)
+	if(length(variantList) > 0)  {
+		# This line replaced. Not entirely tested the repurcussions. e.g. makeVarAlleleMap()?
+		#alleleDb[[thisMarker]] <- variantList   # LATER: separate lists for alleles and variants? 
+		alleleDb[[thisMarker]] <- list(reference=as.SeqFastadna(markerSeq, thisMarker), alleleMap=variantList, inputAlleleCount = length(unlist(variantList)), uniqueSubAlleleCount=length(variantList))
 	}
-}
 
-
-# sequence correction?  
-
-
-# compile stats
-
-if(nrow(seqTable) >0 )  {	# cannot allow assignment from empty list as messes up class of list for remaining iterations
-	summaryList[[thisMarker]] <- list()
-	summaryList[[thisMarker]][[thisSample]] <- seqTable
-}
-
-summaryRow <- data.frame(marker=thisMarker, sample=thisSample, numbSeqs=sum(seqTable$count),numbVars=nrow(seqTable),
-			varName.1=localAlleleNames[1], varFreq.1= localAlleleFreqs[1],
-			varName.2=localAlleleNames[2], varFreq.2= localAlleleFreqs[2],
-			varName.3=localAlleleNames[3], varFreq.3= localAlleleFreqs[3])
-summaryTable <- rbind(summaryTable, summaryRow)
-
-#sequence count across samples? 
-# need to sum from summaryTable or from summaryList.
-#markerSequenceCount <- 
-#as.list(colSums(merge(m, n, all = TRUE), na.rm = TRUE))  # not working
-localSequenceCount <- as.list(seqTable$count)
-names(localSequenceCount) <- seqTable$var
-markerSequenceCount   <- as.list(colSums(merge(markerSequenceCount  , localSequenceCount,  all = TRUE), na.rm = TRUE))
-# might need to instantiate the markerSequenceCount if empty. 
-
-
-
-}  # end of sample loop
-
-markerSampleList[[thisMarker]] <- summaryTable
-runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
-				minVariantLength=min(nchar(names(markerSequenceCount))), 
-				maxVariantLength=max(nchar(names(markerSequenceCount))),
-				minAlleleLength=min(nchar(names(variantList))), maxAlleleLength=max(nchar(names(variantList))))
-runSummaryTable <- rbind(runSummaryTable, runSummaryRow)
-if(length(variantList) > 0)  {
-	alleleDb[[thisMarker]] <- variantList   # LATER: separate lists for alleles and variants?
-}
 }  # end of marker loop
 	
 	localMlgtResult <- new("mlgtResult", designObject,  runSummaryTable=runSummaryTable , alleleDb=alleleDb, markerSampleList=markerSampleList)

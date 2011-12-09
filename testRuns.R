@@ -1,3 +1,16 @@
+#TODO
+# Build in checking for dodgy alignments 
+#	sub aligns longer than marker?
+#	multiple '-' near ends of marker seq.
+#	Compare to profile alignment?
+#	Use other aligments software?
+#	Replace ends of marker with NNN before alignment?
+# Create exon-only marker sequences and re-run with this.  DONE
+# Do another 'clean run' from an empty starting environment.
+# Run new data through.
+# Batch run all samples to date plus concat sample.
+
+
 
 
 
@@ -11,7 +24,7 @@ musclePath <- "C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe"
 
 
 
-
+########## RUNS
 
 analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/testRun2"
 setwd( analysisDir )
@@ -38,6 +51,9 @@ names(rTagList) <- tempTable$sample_name
 inputDataFile <- "C:/Users/dave/HalfStarted/mlgt/3.TCA.454Reads.fna"
 
 ##################### SET UP mlgt
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/testRun2"
+setwd( analysisDir )
+
 source("C:/Users/dave/HalfStarted/mlgt/mlgt_classes.R")
 
 
@@ -156,4 +172,167 @@ save(Run_756948.Result, file="Run_756948.RData")
 
 #################
 
+# New intersect markers - should align better with IMGT allleles. 
+# Test with Liverpool dataset only
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/testRun5"
+setwd( analysisDir )
+
+#markerFile <- "C:/Users/dave/HalfStarted/mlgt/HLA_MARKERS.fasta"
+#markerList <- read.fasta(markerFile ,as.string=T)
+intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", as.string=T)
+
+
+# data in fasta file.
+inputDataFile <- "C:/Users/dave/HLA/data/ID632_FM_preliminary_ALL.fasta"
+intersectDesign.Liverpool <- new("mlgtDesign", projectName="testProject", runName="Intersect.Liverpool", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersectDesign.Liverpool )
+
+prepareMlgtRun(intersectDesign.Liverpool )
+
+intersectLiverpool.Result <- mlgt(intersectDesign.Liverpool)
+
+save(intersectLiverpool.Result, file="intersectLiverResult.RData")
+
+
+
+####################
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/intersectCat"
+setwd( analysisDir )
+
+# data in fasta file.
+inputDataFile <- "C:/Users/dave/HalfStarted/mlgt/catLiverpoolNewcastleData.fasta"
+intersect.catDesign <- new("mlgtDesign", projectName="testProject", runName="intersectCat", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersect.catDesign )
+
+prepareMlgtRun(intersect.catDesign )
+
+intersect.catResult <- mlgt(intersect.catDesign )
+
+save(intersect.catResult, file="intersect.catResult.RData")
+
+
+##################
+
+# NCL Run_760591
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/intersect760591"
+setwd( analysisDir )
+
+# data in fasta file.
+#C:\Users\dave\HLA\data\NCL\Run_760591
+inputDataFile <- "C:/Users/dave/HLA/data/NCL/Run_760591/4.TCA.454Reads.fna"
+intersect.760591.Design <- new("mlgtDesign", projectName="testProject", runName="intersect760591", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersect.760591.Design )
+
+prepareMlgtRun(intersect.760591.Design)
+
+intersect.760591.Result <- mlgt(intersect.760591.Design)
+
+save(intersect.760591.Result, file="intersect.760591.RData")
+
+##################
+
+# NCL Run_756948
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/intersect756948"
+setwd( analysisDir )
+
+# data in fasta file.
+#C:\Users\dave\HLA\data\NCL\Run_756948
+inputDataFile <- "C:/Users/dave/HLA/data/NCL/Run_756948/3.TCA.454Reads.fna"
+intersect.756948.Design <- new("mlgtDesign", projectName="testProject", runName="intersect756948", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersect.756948.Design )
+
+prepareMlgtRun(intersect.756948.Design)
+
+intersect.756948.Result <- mlgt(intersect.756948.Design)
+
+save(intersect.756948.Result, file="intersect.756948.RData")
+
+
+
+
+################
+
+
+# NCL Run_763932_modified
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/intersect763932m"
+setwd( analysisDir )
+
+# data in fasta file.
+inputDataFile <- "C:/Users/dave/HLA/data/NCL/Run_763932_Modified/4.TCA.454Reads.fna"
+intersect.763932m.Design <- new("mlgtDesign", projectName="testProject", runName="intersect763932m", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersect.763932m.Design )
+
+prepareMlgtRun(intersect.763932m.Design)
+
+intersect.763932m.Result <- mlgt(intersect.763932m.Design)
+
+save(intersect.763932m.Result, file="intersect.763932m.RData")
+
+##################
+
+
+# NCL Run_763932_normal
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/intersect763932n"
+setwd( analysisDir )
+
+# data in fasta file.
+inputDataFile <- "C:/Users/dave/HLA/data/NCL/Run_763932_Normal/4.TCA.454Reads.fna"
+intersect.763932n.Design <- new("mlgtDesign", projectName="testProject", runName="intersect763932n", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersect.763932n.Design )
+
+prepareMlgtRun(intersect.763932n.Design)
+
+intersect.763932n.Result <- mlgt(intersect.763932n.Design)
+
+save(intersect.763932n.Result, file="intersect.763932n.RData")
+
+##################
+
+
+# NCL Run_763932_normal
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/testRun6"
+setwd( analysisDir )
+
+# data in fasta file.
+inputDataFile <- "C:/Users/dave/HLA/data/NCL/Run_763932_Normal/4.TCA.454Reads.fna"
+test.763932n.Design <- new("mlgtDesign", projectName="testProject", runName="test763932n", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(test.763932n.Design)
+
+prepareMlgtRun(test.763932n.Design)
+
+test.763932n.Result <- mlgt(test.763932n.Design)
+
+save(test.763932n.Result, file="test.763932n.RData")
+
+test.genotypes <- callGenotypes.mlgtResult(test.763932n.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
+write.table(test.genotypes, file="test.763932n.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
+
+##################
 alleleDbObject <- new(alleleDb,...)

@@ -10,7 +10,10 @@
 # Compare with existing alleles
 # checks for uniqueness of raw read IDs
 # checks for uniqueness of marker IDs, MIDs
-# Reduce I/O. Pipe or stdin/stdout from auxillary progs. Or set up proper MPI?
+# Reduce I/O. Pipe or stdin/stdout from auxillary progs.
+#	command <- "C:/Users/Public/Apps/Blast/bin/fastacmd.exe -p F -I  -d inputSeqs"
+#	test <- readLines(pipe(command))
+# Or set up proper MPI?
 # Functions.
 # Iterate across all loci/sample pairs.
 # Handle/record lack of hits/sequences. 
@@ -29,6 +32,13 @@
 # Sort out whether to use primer hits in assigning markers? It currently IS used indirectely by selection of subsequence with good hits to the correct primers.
 # Fix warning from fastacmd caused by submission without accession list. MIGHT NOW BE FIXED
 # make each marker run return an object. Good structure to run in parallel.
+# SPEED: Do one massive alignment per marker? Might save time. Oringinal seqs with counts and aligned subseqs can be re-merged using orginal seq as name in sample/marker specific tables. 
+# 	what if dodgy seqs in the mix? Will the alignment be any good?
+# 	Might be worth throwing known alleles into the mix!
+# MUSCLE alignments with dodgy ends e.g. A_E3.MID-13 - left a lone C at start of alignment because end of primer is a bit variable amogst seqs. 
+# 	how to quickly test for and fix this problem?  (proportion of ---- before and after subSeq. 
+# Decide on whether to do everything in a project/run directory. Blast DBs are easiest if located in working directory. 
+
 
 ### RECENTLY DONE
 
@@ -208,14 +218,14 @@ fastaFile <- inputFastaFile
 rMinTagSize <- 10	# limit blast hits to perfect matches.
 dbName <- "rTags"
 blastOutFile <- "blastOut.rTags.tab"
-blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", fastaFile , "-W", rMinTagSize  ,"-m 8 -b 1 -o", blastOutFile )
+blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", fastaFile , "-W", rMinTagSize  ,"-m 8 -b 2 -S 3 -o", blastOutFile )
 #blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", fastaFile , "-W", rMinTagSize  ,"-m 8 -o", blastOutFile )	# working
 system(blastCommand )
 
 fMinTagSize <- 10	# limit blast hits to perfect matches.
 dbName <- "fTags"
 blastOutFile <- "blastOut.fTags.tab"
-blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", fastaFile , "-W", fMinTagSize ,"-m 8 -b 1 -o", blastOutFile )
+blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", fastaFile , "-W", fMinTagSize ,"-m 8 -b 2 -S 3 -o", blastOutFile )
 system(blastCommand )
 
 
@@ -251,27 +261,8 @@ system(blastCommand )
 ## Need to make DB of marker sequences. Use primers too?  
 
 
-#primerSeqs <- 
-
-
 # load run data (one seq at a time?). And store efficiently?
 # there may be some identical sequences (even with random ends?). 
-
-#read.fasta()
-#write.fasta()
-
-#fastaFile <- "fewReads.fasta"
-
-#tempReads <- read.fasta("fewReads.fasta", as.string=T)
-
-# is this necessary? could I not jsut proceeed with blasting and then get reads?
-
-#blastdbName <- "rMadeMe"
-#formatdb
-#formatdbCommand <- paste(formatdbPath, "-i", fastaFile,  "-n", blastdbName)
-#system(formatdbCommand )
-
-
 
 
 
@@ -280,51 +271,52 @@ system(blastCommand )
 
 ##read blast result table.
 
-#blastResults <- read.delim("blastOut.markers.tab", header=F)
-#names(blastResults) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
-#nrow(blastResults)
-
 
 # assign sequneces to markers. 
 # Top BLAST hit with minimum level of identity
 #topHits <- blastResults[match(unique(blastResults$query), blastResults$query),]
 topHits <- getTopBlastHits("blastOut.markers.tab")		# redundant method if only storing top hit for each anyway.
 markerMap <- split(as.character(topHits[,1]), topHits[,2])
+## TO BE REPLACED BY:
+	topHits <- getTopBlastHits("blastOut.markers.tab")
+	topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
+	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
+	rMarkerMap <- split(as.character(topHits$query[topHits$strand==2]), topHits$subject[topHits$strand==2])
 
-#inverseList(readMappings(topHits[,1:2]))
+
 
 # read results from samples and make marker map. 
 
 #blastResults <- read.delim("blastOut.rTags.tab", header=F)
 #names(blastResults) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
 #topHits <- blastResults[match(unique(blastResults$query), blastResults$query),]
+
+
 topHits <- getTopBlastHits("blastOut.rTags.tab")
 sampleMap <- split(as.character(topHits[,1]), topHits[,2])
+## NEED TO MAKE SAMPLEMAP WITH HITS TO MID IN BOTH FORWARD AND REVERSE STRANDS like marker hits are split.
+## Requires retention of 2 blast hits per sequence.
+	topSampleHits <- getTopBlastHits("blastOut.rTags.tab")
+	topSampleHits <- read.delim("blastOut.rTags.tab", header=F)
+	names(topSampleHits ) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
+	topSampleHits$strand <- ifelse(topSampleHits$s.end > topSampleHits$s.start, 1,2)
+	fSampleMap <- split(as.character(topSampleHits$query[topSampleHits$strand==1]), topSampleHits$subject[topSampleHits$strand==1])
+	rSampleMap <- split(as.character(topSampleHits$query[topSampleHits$strand==2]), topSampleHits$subject[topSampleHits$strand==2])
+	# combind sampleMaps to give sequences with MIDs in both orientations.
+	pairedSampleMap <- lapply(names(fSampleMap), FUN=function(x) intersect(fSampleMap[[x]], rSampleMap[[x]]))
+	names(pairedSampleMap) <- names(fSampleMap)
+	# test this worked correctly:  intersect(pairedSampleMap[[thisSample]], fSampleMap[[thisSample]])
+	
+#sampleMapClean <- intersect(fSampleMap, rSampleMap)
 
 
 #integrate marker map and sample map to get fully assigned sequences. 
-
 #testPairSeqList <- intersect(sampleMap[["MID-24"]], markerMap[["A_E2"]])
-
-
-
-
-## is an indexed blast db of the sequences useful to pull out sequences for alignment?
-
-# align sequences within samples/markers. 
 
 # Remove primer sequences and MIDs? Primers must be closest to amplicon. 
 # In our study, primers are degenerate, the sequence corresponding to the primer is unreliable. 
 
-# Get primer blast hits to determine positions of primers. Want remaining sequence
-#fPrimerResults <- read.delim("blastOut.fPrimers.tab", header=F)
-#names(fPrimerResults) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
-#fTopHits <- fPrimerResults[match(unique(fPrimerResults$query), fPrimerResults$query),]
-
-#rPrimerResults <- read.delim("blastOut.rPrimers.tab", header=F)
-#names(rPrimerResults) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
-#rTopHits <- rPrimerResults[match(unique(rPrimerResults$query), rPrimerResults$query),]
-
+# TO BE TAKEN OUT
 fTopHits <- getTopBlastHits("blastOut.fPrimers.tab")	# is this a redundant method?
 rTopHits <- getTopBlastHits("blastOut.rPrimers.tab")
 
@@ -366,6 +358,7 @@ alleleDb <- list()
 for(thisMarker in names(markerMap)) {
 #for(thisMarker in names(markerMap)[16:19]) {	# temp to finish off
 
+print(thisMarker)
 #thisMarker <- "DQA1_E2"
 
 ## might need to combine all these to return a single item.
@@ -379,6 +372,9 @@ alleleCount <- 1
 
 for(thisSample in names(sampleMap)) {
 	#print(thisSample)
+
+	
+	#testPairSeqList <- intersect(pairedSampleMap[[thisSample]], markerMap[[thisMarker]])
 	testPairSeqList <- intersect(sampleMap[[thisSample]], markerMap[[thisMarker]])
 
 
@@ -425,9 +421,8 @@ if(length(seqGroup) < 1 )  {
 #str(seqGroup[[1]])
 
 seqTable <- cbind(as.character(unlist(seqGroup)), names(unlist(seqGroup)))
-#split(unlist(seqGroup))
 
-#getSequence(seqGroup[[1]], as.string=T)
+
 
 localSequenceMap <- split(seqTable[,2], seqTable[,1])
 
@@ -441,7 +436,7 @@ localVariants <- names(localSequenceCount)
 
 localVariantFileName <- paste("thisRun", thisMarker, thisSample, "variants.fasta",sep=".")  #"localVariants.fasta"
 localVariantFile <- paste(runPath, localVariantFileName, sep="/")
-write.fasta(as.list(localVariants) ,localVariants,file=localVariantFile )
+write.fasta(as.list(localVariants) ,localVariants,file=localVariantFile ,open="w")
 
 ## test if variants are novel. 
 ## Give allele names?  
