@@ -335,4 +335,46 @@ test.genotypes <- callGenotypes.mlgtResult(test.763932n.Result,  mapAlleles=TRUE
 write.table(test.genotypes, file="test.763932n.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
 
 ##################
+
+
+
+# DNAseqLab Run
+# Only 2 samples but Typically over 1000 reads per marker/sample pair. 
+# Alignments were taking a long time. (over an hour for a pair) so added test to reduce MUSCLE iteration from default (16) to 2.
+# Fast enough but alignments are rubbish. Not sure if due to MUSCLE, or the markers.
+# RAM may be an issue too with this many seqs. 
+# Would be nice to limit the number of sequences to align BUT, many of the raw variants will become the same variant once converted to a sub-alignment. 
+
+# Variant counts are very impressive though. e.g. Var1 5712, Var 2 89 ! (~1%) 
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/dnaSeqLabTest"
+setwd( analysisDir )
+
+seqLabSamples <- c("MID1", "MID3")
+seqLab.rTagList <-  seqLab.fTagList <- list(MID1="ACGAGTGCGT", MID3="AGACGCACTC")		# same MIDs front and back.
+
+
+# data in fasta file. C:\Users\dave\NextGen\DNAseqLab
+inputDataFile <- "C:/Users/dave/NextGen/DNAseqLab/1.TCA.454Reads.fna"
+dnaSeqLabTest.Design <- new("mlgtDesign", projectName="testProject", runName="dnaSeqLabTest", 
+				samples=seqLabSamples , markers=intersectMarkerList ,
+				fTags=seqLab.fTagList, rTags=seqLab.rTagList, inputFastaFile=inputDataFile )
+
+print(dnaSeqLabTest.Design)
+
+prepareMlgtRun(dnaSeqLabTest.Design)
+
+dnaSeqLabTest.Result <- mlgt(dnaSeqLabTest.Design)
+
+save(dnaSeqLabTest.Result, file="dnaSeqLabTest.RData")
+
+test.genotypes <- callGenotypes.mlgtResult(dnaSeqLabTest.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
+write.table(test.genotypes, file="dnaSeqLabTest.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
+
+##################
+
+
+
+
+
 alleleDbObject <- new(alleleDb,...)

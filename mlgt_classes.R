@@ -27,22 +27,29 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	}
 
 	fRawSeqs <- rRawSeqs <- list()
-
+	
+	## 12th Dec 11. Edited following rawseq extraction because failed when using large dataset. Replaced '-s' (queryList) option with '-i' (inputfile)
 	if(length(fPairSeqList ) > 0)  {
-		queryList <- paste(fPairSeqList , collapse=",")	
+		#queryList <- paste(fPairSeqList , collapse=",")
+		fIdFileName <- "fIdFile.txt"	
+		write(fPairSeqList , file=fIdFileName )
 		fRawSeqFileName <- "fRawSeqExtract.fasta"
 		strand <- 1
-		fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", fRawSeqFileName,  "-s", queryList)		
+		#fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", fRawSeqFileName,  "-s", queryList)		
+		fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", fRawSeqFileName,  "-i", fIdFileName)	
 		system(fastacmdCommand)
 		fRawSeqs <- read.fasta(fRawSeqFileName , as.string=T)
 	}
 
 
 	if(length(rPairSeqList ) > 0)  {
-		queryList <- paste(rPairSeqList , collapse=",")	
+		#queryList <- paste(rPairSeqList , collapse=",")	
+		rIdFileName <- "rIdFile.txt"
+		write(rPairSeqList , file=rIdFileName )		
 		rRawSeqFileName <- "rRawSeqExtract.fasta"
 		strand <- 2
-		fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", rRawSeqFileName,  "-s", queryList)		
+		#fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", rRawSeqFileName,  "-s", queryList)		
+		fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", rRawSeqFileName,  "-i", rIdFileName)
 		system(fastacmdCommand)
 		rRawSeqs <- read.fasta(rRawSeqFileName , as.string=T)
 	}
@@ -61,6 +68,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 		return(varCountTable)
 	}
 	rawSeqCountTable <-  as.data.frame(table(unlist(rawSeqs)))
+	rawVariantCount <- nrow(rawSeqCountTable)
 	names(rawSeqCountTable) <- c("rawSeq", "rawCount")
 	rawVariantFile <- paste("test", thisMarker, thisSample, "raw.variants.fasta",sep=".")  #"localVariants.fasta"
 	#rawVariantFile <- paste(runPath, rawVariantFileName, sep="/")
@@ -69,7 +77,12 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 # Align all seqs with reference
 	rawAlignFile <- paste("test", thisMarker, thisSample, "raw.align.fasta",sep=".")  #"localAlign.fasta"
 	#rawAlignFile <- paste(runPath, rawAlignFileName, sep="/")
-	muscleCommand <- paste(musclePath, "-in", rawVariantFile , "-out", rawAlignFile , "-diags -quiet" )
+	if(rawVariantCount > 800) {
+		muscleCommand <- paste(musclePath, "-in", rawVariantFile , "-out", rawAlignFile , "-diags -quiet -maxiters 2" )	# faster alignment
+		warning(paste("Using fast MUSCLE alignment for ", thisMarker, thisSample, rawVariantCount, "sequences\n"))
+	} else {
+		muscleCommand <- paste(musclePath, "-in", rawVariantFile , "-out", rawAlignFile , "-diags -quiet" )
+	}
 	system(muscleCommand)
 
 
