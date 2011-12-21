@@ -1,4 +1,57 @@
 
+
+setClass("mlgtDesign", 
+	representation(
+		projectName="character", 
+		runName="character",
+		markers="list",
+		samples="character",
+		fTags="list",
+		rTags="list", 
+		inputFastaFile="character"
+	)
+)
+
+setMethod("print", "mlgtDesign", definition= function(x, ...){
+	cat("Design for mlgt run:\n")
+	cat(paste("Project:",x@projectName,"\n"))
+	cat(paste("Run:",x@runName,"\n"))
+	cat(paste("Samples:",length(x@samples),"\n"))
+	cat(paste("fTags:",length(x@fTags),"\n"))
+	cat(paste("rTags:",length(x@rTags),"\n"))
+	cat(paste("Markers:",length(x@markers),"\n"))
+	#cat(paste(x[1:5]), "...\n")
+	}
+)
+
+
+#setMethod("show", "mlgtDesign", definition= function(x, ...){
+#	cat("Design for mlgt run:\n")
+#	cat(paste("Project:",x@projectName,"\n"))
+#	cat(paste("Run:",x@runName,"\n"))
+#	cat(paste("Samples:",length(x@samples),"\n"))
+#	cat(paste("fTags:",length(x@fTags),"\n"))
+#	cat(paste("rTags:",length(x@rTags),"\n"))
+#	cat(paste("Markers:",length(x@markers),"\n"))
+#	#cat(paste(x[1:5]), "...\n")
+#	}
+#)
+
+
+
+setClass("mlgtResult", 
+	representation(
+			runSummaryTable="data.frame",
+			alleleDb="list" ,
+			markerSampleList="list"
+	),
+	contains="mlgtDesign"
+)
+
+
+
+
+
 getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each query in the table. May now be partially redundant if selecting for number of blast hits returned..
 	blastResults <- read.delim(blastTableFile, header=F)
 	names(blastResults) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
@@ -99,23 +152,25 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 
 	alignedSubTable <- data.frame(rawSeq =  names(alignedSubSeqs ) , subSeq= as.character(unlist(alignedSubSeqs )))
 
-# R-apply count of each seq.  There may be some duplicated subSeqs.
+# Re-apply count of each seq.  There may be some duplicated subSeqs.
 	combTable <- merge(rawSeqCountTable ,alignedSubTable , by="rawSeq", all.x=T)
 	varCount <- by(combTable, as.character(combTable$subSeq), FUN=function(x) sum(x$rawCount))
 	varCountTable <- data.frame(alignedVar=names(varCount), count=as.numeric(varCount))	
 	varCountTable$var <- gsub("-","",varCountTable$alignedVar)
 	varCountTable <- varCountTable[order(varCountTable$count,decreasing=T),]
 # Make unique list, summing counts where same seq found. (easier in table than list).  
-
+	# ?TODO?
 	return(varCountTable)
 
 }
 
 
 
-mlgt <- function(object) attributes(object)
-setGeneric("mlgt")
+#mlgt <- function(object) attributes(object)
+#setGeneric("mlgt")
 
+mlgt <- function(designObject) attributes(designObject)
+setGeneric("mlgt")
 
 
 mlgt.mlgtDesign  <- function(designObject)  {
@@ -297,54 +352,8 @@ setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")
 
 
 
-setClass("mlgtDesign", 
-	representation(
-		projectName="character", 
-		runName="character",
-		markers="list",
-		samples="character",
-		fTags="list",
-		rTags="list", 
-		inputFastaFile="character"
-	)
-)
-
-setMethod("print", "mlgtDesign", definition= function(x, ...){
-	cat("Design for mlgt run:\n")
-	cat(paste("Project:",x@projectName,"\n"))
-	cat(paste("Run:",x@runName,"\n"))
-	cat(paste("Samples:",length(x@samples),"\n"))
-	cat(paste("fTags:",length(x@fTags),"\n"))
-	cat(paste("rTags:",length(x@rTags),"\n"))
-	cat(paste("Markers:",length(x@markers),"\n"))
-	#cat(paste(x[1:5]), "...\n")
-	}
-)
-
-
-#setMethod("show", "mlgtDesign", definition= function(x, ...){
-#	cat("Design for mlgt run:\n")
-#	cat(paste("Project:",x@projectName,"\n"))
-#	cat(paste("Run:",x@runName,"\n"))
-#	cat(paste("Samples:",length(x@samples),"\n"))
-#	cat(paste("fTags:",length(x@fTags),"\n"))
-#	cat(paste("rTags:",length(x@rTags),"\n"))
-#	cat(paste("Markers:",length(x@markers),"\n"))
-#	#cat(paste(x[1:5]), "...\n")
-#	}
-#)
-
-setClass("mlgtResult", 
-	representation(
-			runSummaryTable="data.frame",
-			alleleDb="list" ,
-			markerSampleList="list"
-	),
-	contains="mlgtDesign"
-)
-
-
-prepareMlgtRun <- function(object) attributes(object)
+#prepareMlgtRun <- function(object) attributes(object)
+prepareMlgtRun <- function(designObject) attributes(designObject)
 setGeneric("prepareMlgtRun")
 
 prepareMlgtRun.mlgtDesign <- function(designObject)  {
@@ -408,5 +417,8 @@ prepareMlgtRun.mlgtDesign <- function(designObject)  {
 }	
 
 setMethod("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
+setMethod("prepareMlgtRun",signature(designObject="mlgtDesign"), definition=prepareMlgtRun.mlgtDesign)
+
+setGeneric("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
 
 

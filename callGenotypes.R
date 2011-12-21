@@ -75,20 +75,19 @@ callGenotypes <- function(table, alleleDb=NULL, minTotalReads=50, maxPropUniqueV
 	
 	# difference between sum of vars 1 + 2 and var 3, as proportion of total
 	# > 0.5 is good. <0.3 not good. 0.4 as cut-off for now? 
-	distinctVars <- 	with(table, (((varFreq.1+varFreq.2)-varFreq.3)/numbSeqs) >= minDiffToVarThree)
+	table$diffToVarThree <- with(table, ((varFreq.1+varFreq.2)-varFreq.3)/numbSeqs)
+
+	distinctVars <- 	with(table, diffToVarThree  >= minDiffToVarThree)
 	table$status[enoughReads & !distinctVars] <- "complexVars"
 
 	# difference between var 1 and var2 as proportion of total
 	# homozygote: >0.3, often > 0.5
 	# heterozygote: <0.25, often < 0.1
-
+	table$propDiffHomHet <- with(table, ((varFreq.1-varFreq.2)/numbSeqs))
 	eligible <- (enoughReads & distinctVars) 
-	table$status[eligible] <- ifelse(with(table[eligible,], ((varFreq.1-varFreq.2)/numbSeqs) >= minPropDiffHomHetThreshold), "HOMOZYGOTE","HETEROZYGOTE")
+	table$status[eligible] <- ifelse((table$propDiffHomHet[eligible]  >= minPropDiffHomHetThreshold), "HOMOZYGOTE","HETEROZYGOTE")
 
 	#table$homozygote <- 	with(table, ((varFreq.1-varFreq.2)/numbSeqs) >= minPropDiffHomHetThreshold)
-
-
-
 
 	return(table)
 }
@@ -124,7 +123,7 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, minTotalReads=
 }
 
 
-
+stopifnot(FALSE)
 
 
 ######################### OUTPUT RESULTS TO DATE

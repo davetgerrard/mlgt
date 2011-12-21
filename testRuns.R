@@ -22,6 +22,56 @@ fastacmdPath <- "C:/Users/Public/Apps/Blast/bin/fastacmd.exe"
 blastAllPath <- "C:/Users/Public/Apps/Blast/bin/blastall.exe"
 musclePath <- "C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe"
 
+source("C:/Users/dave/HalfStarted/mlgt/mlgt_classes.R")
+
+
+
+############## cleanRun
+
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/cleanRun"
+setwd( analysisDir )
+
+sampleFile <- "C:/Users/dave/HalfStarted/mlgt/samples_ALL.tab"
+sampleTable <- read.delim(sampleFile, sep=";")
+
+intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", as.string=T)
+
+# samples
+sampleList <- as.character(unique(sampleTable$sample_name))
+
+# MIDs/tags
+tempTable <- unique(subset(sampleTable, select=c(tag_f, sample_name)))
+fTagList <- as.list(as.character(tempTable$tag_f))
+names(fTagList) <- tempTable$sample_name
+tempTable <- unique(subset(sampleTable, select=c(tag_r, sample_name)))
+rTagList <- as.list(as.character(tempTable$tag_r))
+names(rTagList) <- tempTable$sample_name
+
+## Use smallest NCL data for a quick test run.
+inputDataFile <- "C:/Users/dave/HLA/data/NCL/Run_763932_Modified/4.TCA.454Reads.fna"
+intersect.cleanRun.Design <- new("mlgtDesign", projectName="testProject", runName="cleanRun", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+
+print(intersect.cleanRun.Design )
+
+prepareMlgtRun(intersect.cleanRun.Design)		# about 2 mins
+
+intersect.cleanRun.Result <- mlgt(intersect.cleanRun.Design)		# about 4 mins, normally 30mins+
+
+str(intersect.cleanRun.Result, max.level=2)  # could use for print.mlgtResult()
+save(intersect.cleanRun.Result, file="intersect.cleanRun.RData")
+
+# need to create/load knownAlleleDb first.
+#test.genotypes <- callGenotypes.mlgtResult(intersect.cleanRun.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
+#write.table(test.genotypes, file="intersect.cleanRun.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
+
+
+
+
+
+
 
 
 ########## RUNS
@@ -36,6 +86,8 @@ sampleTable <- read.delim(sampleFile, sep=";")
 markerFile <- "C:/Users/dave/HalfStarted/mlgt/HLA_MARKERS.fasta"
 markerList <- read.fasta(markerFile ,as.string=T)
 
+intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", as.string=T)
+
 # samples
 sampleList <- as.character(unique(sampleTable$sample_name))
 
@@ -47,14 +99,18 @@ tempTable <- unique(subset(sampleTable, select=c(tag_r, sample_name)))
 rTagList <- as.list(as.character(tempTable$tag_r))
 names(rTagList) <- tempTable$sample_name
 
+
+
 # data in fasta file.
 inputDataFile <- "C:/Users/dave/HalfStarted/mlgt/3.TCA.454Reads.fna"
+
+
 
 ##################### SET UP mlgt
 analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/testRun2"
 setwd( analysisDir )
 
-source("C:/Users/dave/HalfStarted/mlgt/mlgt_classes.R")
+
 
 
 thisDesign <- new("mlgtDesign", projectName="testProject", runName="testRun2", 
@@ -333,6 +389,8 @@ save(test.763932n.Result, file="test.763932n.RData")
 
 test.genotypes <- callGenotypes.mlgtResult(test.763932n.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
 write.table(test.genotypes, file="test.763932n.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
+
+str(test.763932n.Result, max.level=2)  # could use for print.mlgtResult()
 
 ##################
 

@@ -52,6 +52,7 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile)  {
 	write.fasta(markerSeq, markerName, file=markerSeqFile )
 	#muscle -profile -in1 existing_aln.afa -in2 new_seq.fa -out combined.afa
 	markerToAlleleDbAlign <- paste(markerName, "allignedToAlleles.fasta", sep=".")
+	# profile alignment of marker to existing allele alignment
 	muscleCommand <- paste(musclePath, "-quiet -profile -in1", alignedAlleleFastaFile, "-in2", markerSeqFile, "-out" ,markerToAlleleDbAlign )
 	system(muscleCommand)
 
@@ -79,11 +80,25 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile)  {
 }
 
 
-setwd("C:/Users/dave/HalfStarted/mlgt/testProject/mapImgtAlleles/")
+#setwd("C:/Users/dave/HalfStarted/mlgt/testProject/mapImgtAlleles/")
 
 markerImgtFileTable <- read.delim("C:/Users/dave/HalfStarted/mlgt/marker.imgt.msf.list.tab", header=T)
 imgtFileDir <- "C:/Users/dave/HLA/data/IMGT_manualDownload/"
 
+
+## USING INTERSECT MARKER LIST
+knownAlleleDb <- list()
+# takes about 2 minutes with 17 markers. 
+for(thisMarker in names(intersectMarkerList)) {
+	baseFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
+	imgtAlignFile <- paste(imgtFileDir,baseFile , sep="") 
+	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], imgtAlignFile)
+}
+
+stopifnot(FALSE)
+
+
+##############
 
 ## USING ORIGINAL MARKER LIST
 knownAlleleDb <- list()
@@ -94,7 +109,14 @@ for(thisMarker in names(markerList)) {
 	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,markerList[[thisMarker]][1], imgtAlignFile)
 }
 
-
+## USING INTERSECT MARKER LIST
+knownAlleleDb <- list()
+# takes about 2 minutes with 17 markers. 
+for(thisMarker in names(intersectMarkerList)) {
+	baseFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
+	imgtAlignFile <- paste(imgtFileDir,baseFile , sep="") 
+	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], imgtAlignFile)
+}
 
 str(knownAlleleDb)
 
@@ -137,14 +159,7 @@ catResult@markerSampleList[[thisMarker ]]
 
 
 
-## USING INTERSECT MARKER LIST
-knownAlleleDb <- list()
-# takes about 2 minutes with 17 markers. 
-for(thisMarker in names(intersectMarkerList)) {
-	baseFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
-	imgtAlignFile <- paste(imgtFileDir,baseFile , sep="") 
-	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], imgtAlignFile)
-}
+
 
 
 
