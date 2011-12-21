@@ -8,7 +8,10 @@ setClass("mlgtDesign",
 		samples="character",
 		fTags="list",
 		rTags="list", 
-		inputFastaFile="character"
+		inputFastaFile="character", 
+		markerBlastResults="character",
+		fTagBlastResults="character",
+		rTagBlastResults="character"
 	)
 )
 
@@ -354,37 +357,64 @@ setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")
 
 #prepareMlgtRun <- function(object) attributes(object)
 prepareMlgtRun <- function(designObject) attributes(designObject)
+prepareMlgtRun <- function(designObject,projectName,runName, samples, markers,fTags,rTags, inputFastaFile, overwrite) attributes(designObject)
+
 setGeneric("prepareMlgtRun")
 
-prepareMlgtRun.mlgtDesign <- function(designObject)  {
+
+prepareMlgtRun.listDesign <- function(projectName,runName, samples, markers,fTags,rTags, inputFastaFile,overwrite="prompt")  {
+	designObject <- new("mlgtDesign", projectName=projectName, runName=runName, 
+				samples=samples, markers=markers ,
+				fTags=fTags, rTags=rTags, inputFastaFile=inputFastaFile)
+
+	designObject <- prepareMlgtRun(designObject,overwrite=overwrite)
+	
+}
+
+setMethod("prepareMlgtRun",
+	signature(designObject="missing",projectName="character", runName="character", samples="character",markers="list", 
+	fTags="list", rTags="list", inputFastaFile="character", overwrite="character"), 
+	definition=prepareMlgtRun.listDesign)
+
+
+prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 	cat(paste(designObject@projectName,"\n"))
 
+	fTagsFastaFile <- paste(runPath,"fTags.fasta", sep="/")		
+	rTagsFastaFile <- paste(runPath,"rTags.fasta", sep="/")
+	markersFastaFile <- paste(runPath,"markers.fasta", sep="/")
+	rTagsBlastOutFile <- paste(runPath,"blastOut.rTags.tab", sep="/")
+	fTagsBlastOutFile <- paste(runPath,"blastOut.fTags.tab", sep="/")
+	blastOutFileName <- "blastOut.markers.tab"
+	markerBlastOutFile <- paste(runPath, blastOutFileName, sep="/")
 
-	# set up new directories if required.
-	
-	#overWriteBaseData <- FALSE
-	#runPath <- paste(getwd(), x@projectName, x@runName, sep="/")
-	#if(file.exists(runPath))  {
-	#	overWriteBaseData <- readline("A folder for this run already exists, do you want to write over this data? (")
-	#} else {
-	#		dir.create(runPath, recursive=T)
-	#}
+	existingFiles <- (file.exists(fTagsFastaFile ) | file.exists(rTagsFastaFile ) | file.exists(markersFastaFile ) | 
+					file.exists(rTagsBlastOutFile) | file.exists(fTagsBlastOutFile) | file.exists(markerBlastOutFile))
+	if(existingFiles)  {
+		overwrite <- tolower(overwrite)
+		# set up new directories if required.
+		if(overwrite == "prompt") overwrite <- readline("This folder already contains mlgt run files, do you want to write over this data? (yes/no)")
+
+		if(!(overwrite=="y" | overwrite=="n" | overwrite=="yes" | overwrite=="no")) {stop(paste("Unrecognised value for overwrite:", overwrite))}
+		overWriteBaseData <- switch(overwrite,
+						"yes"=TRUE,
+						"y"=TRUE,
+						"no"=FALSE,
+						"n"=FALSE)
+		if(!overWriteBaseData) {stop("This folder already contains mlgt run files. Exiting")}
+	}					
+
 	runPath <- getwd()
 	# set up blast DBs
 	cat("Setting up BLAST DBs...\n")
-	fastaFile <- paste(runPath,"fTags.fasta", sep="/")
+
 	write.fasta(designObject@fTags, names(designObject@fTags), file=fastaFile )
-	setUpBlastDb(fastaFile , formatdbPath, blastdbName="fTags")		# default is no index
+	setUpBlastDb(fTagsFastaFile , formatdbPath, blastdbName="fTags")		# default is no index
 
-	fastaFile <- paste(runPath,"rTags.fasta", sep="/")
 	write.fasta(designObject@rTags, names(designObject@rTags), file=fastaFile )
-	setUpBlastDb(fastaFile , formatdbPath, blastdbName="rTags")		# default is no index
+	setUpBlastDb(rTagsFastaFile , formatdbPath, blastdbName="rTags")		# default is no index
 
-	fastaFile <- paste(runPath,"markers.fasta", sep="/")
-	write.fasta(designObject@markers, names(designObject@markers), file=fastaFile )
-	#blastdbName <- "markerSeqs"
-	#formatdbCommand <- paste(formatdbPath, "-i", fastaFile,  "-p F -n", blastdbName)
-	#system(formatdbCommand)
+	write.fasta(designObject@markers, names(designObject@markers), file=markersFastaFile )
 	setUpBlastDb(fastaFile , formatdbPath, blastdbName="markerSeqs", indexDb="T") 
 
 	## input as blast DB with index (useful for fast sub-sequence retrieval?)
@@ -396,29 +426,41 @@ prepareMlgtRun.mlgtDesign <- function(designObject)  {
 	
 	rMinTagSize <- 10	# limit blast hits to perfect matches.		### TODO: SET GLOBALLY
 	dbName <- "rTags"
-	blastOutFile <- "blastOut.rTags.tab"
-	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", rMinTagSize  ,"-m 8 -b 2 -S 3 -o", blastOutFile )
+
+	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", rMinTagSize  ,"-m 8 -b 2 -S 3 -o", rTagsBlastOutFile )
 	system(blastCommand )
 
 	fMinTagSize <- 10	# limit blast hits to perfect matches.
 	dbName <- "fTags"
-	blastOutFile <- "blastOut.fTags.tab"
-	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", fMinTagSize ,"-m 8 -b 2 -S 3 -o", blastOutFile )
+
+	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", fMinTagSize ,"-m 8 -b 2 -S 3 -o", fTagsBlastOutFile )
 	system(blastCommand )
 
 	## blast against markers
-	#fastaFile <- "fewReads.fasta"
 	dbName <- "markerSeqs"
-	blastOutFileName <- "blastOut.markers.tab"
-	blastOutFile <- paste(runPath, blastOutFileName, sep="/")
-	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", 11 , "-m 8 -b 1 -o", blastOutFile )		
+
+	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", 11 , "-m 8 -b 1 -o", markerBlastOutFile )		
 	system(blastCommand )
+
+	designObject@markerBlastResults <- markerBlastOutFile
+	designObject@fTagBlastResults <- fTagsBlastOutFile 
+	designObject@rTagBlastResults <- rTagsBlastOutFile 
+
+	return(designObject)
 
 }	
 
-setMethod("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
-setMethod("prepareMlgtRun",signature(designObject="mlgtDesign"), definition=prepareMlgtRun.mlgtDesign)
+##setMethod("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
+#setMethod("prepareMlgtRun",signature(designObject="mlgtDesign"), definition=prepareMlgtRun.mlgtDesign)
 
-setGeneric("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
+
+#TODO: test if signature with overwrite="ANY" will work. First attempt, no.
+setMethod("prepareMlgtRun",
+	signature(designObject="mlgtDesign",projectName="missing", runName="missing", samples="missing",markers="missing", 
+	fTags="missing", rTags="missing", inputFastaFile="missing", overwrite="character"),
+	 definition=prepareMlgtRun.mlgtDesign)
+
+
+#setGeneric("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
 
 
