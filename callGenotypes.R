@@ -243,8 +243,8 @@ writeGenotypeCallsToFile.list <- function(callList, file, singleFile=FALSE,write
 
 }
 
-# generic method. Need to give defaults if to be relied upon.
-writeGenotypeCallsToFile <- function(callList, genotypeCall, file, singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
+# generic method. Need to give defaults if defaults to be set in specific forms.
+writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
 setGeneric("writeGenotypeCallsToFile")
 
 setMethod("writeGenotypeCallsToFile", signature(callList="list", genotypeCall="missing",file="ANY", singleFile="ANY", 
@@ -257,6 +257,11 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 
 #methods("writeGenotypeCallsToFile")
 
+
+
+######### examples of writeGenotypeCallsToFile methods. Use of generic below. 
+
+
 writeGenotypeCallsToFile.genotypeCall(test.genotypes[[2]],file="test.genotypes.tab" )
 writeGenotypeCallsToFile.genotypeCall(test.genotypes[[2]],file="test.genotypes.tab" ,writeParams=TRUE)
 writeGenotypeCallsToFile.genotypeCall(test.genotypes[[2]],writeParams=TRUE)
@@ -265,16 +270,18 @@ writeGenotypeCallsToFile.genotypeCall(test.genotypes[[2]],writeParams=TRUE)
 invisible(lapply(test.genotypes, FUN=function(x) writeGenotypeCallsToFile.genotypeCall(x,writeParams=TRUE)))
 # is equivalent to 
 writeGenotypeCallsToFile.list(test.genotypes)
+# and with generic set also
+writeGenotypeCallsToFile(test.genotypes)
 
 writeGenotypeCallsToFile.list(test.genotypes, singleFile=T, file="genotypeTable.tab")
 
 ## once methods are set:-
 
-writeGenotypeCallsToFile(test.genotypes)
 writeGenotypeCallsToFile(test.genotypes, singleFile=T, file="genotypeTable.tab")	# list input, one file of concatenated table
+writeGenotypeCallsToFile(test.genotypes)								# same
 writeGenotypeCallsToFile(test.genotypes, singleFile=F, file="genotypeTable.tab")	# list input, one file per marker, ignores file name given
 writeGenotypeCallsToFile(genotypeCall=test.genotypes[[1]],  file="genotypeTable.tab",writeParams=TRUE)		# genotypeCall input. 
-
+writeGenotypeCallsToFile(genotypeCall=test.genotypes[[1]])
 
 #combineTablesInList <- function(list, tableName)  {
 #	resultTable <- data.frame()
