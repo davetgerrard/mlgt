@@ -45,6 +45,17 @@
 # very clean, not 100% perfect.
 #intersect.756948.Result@markerSampleList[["DQA1_E2"]]
 
+setClass("genotypeCall", 
+	representation(
+		projectName="character", 
+		runName="character",
+		genotypeTable="data.frame",
+		callParameters="list",
+		mappedToAlleles="logical",
+		alleleDbName="character"
+	)
+)
+
 
 makeVarAlleleMap <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),varMarkers=names(varDb))  {
 			knownAlleleTable <- data.frame()
@@ -92,34 +103,98 @@ callGenotypes <- function(table, alleleDb=NULL, minTotalReads=50, maxPropUniqueV
 	return(table)
 }
 
+vectorOrRepeat <- function(paramValue, requiredLength) {
+	# Used by callGenotypes.mgltResult() to equalise lengths of parameter vectors when one has length > 1
+	if(length(paramValue) == requiredLength) {
+		return(paramValue)
+	} else {
+		if(length(paramValue) == 1) {
+			return(rep(paramValue, requiredLength))
+		} else {
+			stop(paste("Parameter has length",length(paramValue) ,"but does not match required length", requiredLength))	
+		}
+	}
+
+}
+
 ## call genotypes on an "mlgtResult" object. Can select specific markers/samples to return. 
 callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, minTotalReads=50, maxPropUniqueVars=0.8, 
 					minPropToCall=0.1, minDiffToVarThree=0.4,
 					minPropDiffHomHetThreshold=0.3, markerList=names(resultObject@markers),
 					sampleList=resultObject@samples, mapAlleles=FALSE	) {
 
+	## FM requested marker specific parameters.
+	## test for vectors in any of the calling parameters. 	
+	## if all are single, apply genotyping to one large table of all results,	
+	## if any are vectors, need to apply genotyping to each marker separately. 
+	## Should mark if different thresholds used. 
+	## need to test that the threshold vector matches the markerlist length.
+
 	runTable <- data.frame()
-	for(thisMarker in markerList)  {
-		subTable <- resultObject@markerSampleList[[thisMarker]]
-		subTable <- subTable[match(sampleList,subTable$sample),]
-		runTable <- rbind(runTable,subTable)		
-	}
-	genotypeTable <- callGenotypes(runTable , alleleDb=alleleDb, minTotalReads=minTotalReads, 
-					maxPropUniqueVars=maxPropUniqueVars, 
-					minPropToCall=minPropToCall, minDiffToVarThree=minDiffToVarThree,
-					minPropDiffHomHetThreshold=minPropDiffHomHetThreshold, mapAlleles=mapAlleles)
+	genotypeTable <- data.frame()
+	callResults <- list()
 
-	if(mapAlleles) {
-		if(is.null(alleleDb)) {
-			warning("No alleleDb specified\n")
-		}	else {
-			varAlleleMap <- makeVarAlleleMap(alleleDb, resultObject@alleleDb, alleleMarkers=markerList, varMarkers=markerList)
-			genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
-			genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
+#	if(length(minTotalReads) > 1 | length(minDiffToVarThree) > 1 | length(minPropDiffHomHetThreshold) > 1 )  {
+		# find parameters as vectors and test the lengths. Set those which are only 1 to be length of markerList.
+		minTotalReads <- vectorOrRepeat(minTotalReads, length(markerList))
+		minDiffToVarThree <- vectorOrRepeat(minDiffToVarThree, length(markerList))
+		minPropDiffHomHetThreshold<- vectorOrRepeat(minPropDiffHomHetThreshold, length(markerList))		
+
+		# multiple parameter values set. Genotype each marker separately
+		for(i in 1:length(markerList))  {	
+			thisMarker <- markerList[i]	
+			subTable <- resultObject@markerSampleList[[thisMarker]]
+			subTable <- subTable[match(sampleList,subTable$sample),]	
+			if(nrow(subTable) < 1)  {
+				# do nothing with this marker
+			} else {
+				genotypeTable <- callGenotypes(subTable , alleleDb=alleleDb, minTotalReads=minTotalReads[i], 
+					minDiffToVarThree=minDiffToVarThree[i],
+					minPropDiffHomHetThreshold=minPropDiffHomHetThreshold[i], mapAlleles=mapAlleles)
+				#genotypeTable <- rbind(genotypeTable , subGenoTable)
+
+				if(mapAlleles) {
+					if(is.null(alleleDb)) {
+						warning("No alleleDb specified\n")
+					}	else {
+						varAlleleMap <- makeVarAlleleMap(alleleDb, resultObject@alleleDb, alleleMarkers=markerList, varMarkers=markerList)
+						genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
+						genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
+					}
+				}
+				callResults[[thisMarker]] <- new("genotypeCall", 
+						projectName=resultObject@projectName, 
+						runName=resultObject@runName,
+						genotypeTable=genotypeTable,
+						callParameters=list("minTotalReads"=as.integer(minTotalReads[i]),
+							"minDiffToVarThree"=minDiffToVarThree[i],	"minPropDiffHomHetThreshold"=minPropDiffHomHetThreshold[i]),
+						mappedToAlleles=mapAlleles,
+						alleleDbName="NeedToSetThis" )
+			}
+
+
 		}
+#	} else {
+#		# single parameter values. Genotype all markers as one.
+#		for(thisMarker in markerList)  {
+#			subTable <- resultObject@markerSampleList[[thisMarker]]
+#			subTable <- subTable[match(sampleList,subTable$sample),]
+#			runTable <- rbind(runTable,subTable)		
+#		}
+#		genotypeTable <- callGenotypes(runTable , alleleDb=alleleDb, minTotalReads=minTotalReads, 
+#					maxPropUniqueVars=maxPropUniqueVars, 
+#					minPropToCall=minPropToCall, minDiffToVarThree=minDiffToVarThree,
+#					minPropDiffHomHetThreshold=minPropDiffHomHetThreshold, mapAlleles=mapAlleles)
+#
+#	}
 
-	}	
-	return(genotypeTable)
+
+	
+	#return(genotypeTable)
+	return(callResults)
+	#new("genotypeCall", 
+
+
 }
 
 

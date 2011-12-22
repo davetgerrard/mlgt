@@ -1,4 +1,4 @@
-
+require(seqinr)
 
 setClass("mlgtDesign", 
 	representation(
@@ -57,7 +57,9 @@ setClass("mlgtResult",
 
 getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each query in the table. May now be partially redundant if selecting for number of blast hits returned..
 	blastResults <- read.delim(blastTableFile, header=F)
-	names(blastResults) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
+	## Fields: 
+	# Query id,Subject id,% identity,alignment length,mismatches,gap openings,q. start,q. end,s. start,s. end,e-value,bit score
+	names(blastResults) <- c("query", "subject", "percent.id", "ali.length", "mismatches", "gap.openings", "q.start","q.end", "s.start","s.end", "e.value", "bit.score")
 	topHits <- blastResults[match(unique(blastResults$query), blastResults$query),]
 }
 
@@ -462,5 +464,39 @@ setMethod("prepareMlgtRun",
 
 
 #setGeneric("prepareMlgtRun","mlgtDesign", definition=prepareMlgtRun.mlgtDesign)
+
+
+
+inspectBlastResults <- function(blastTable, subject)  {
+
+	#topHits <- getTopBlastHits(resultFile)
+	#topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
+	hitCount <- length(which(blastTable$subject == subject))
+	if(hitCount > 0) { 
+		#subject <- "DPA1_E2"
+		breakValue <- max(10, 10^(floor(log10(hitCount))))	# favour a large number of breaks. At least 10.
+		par(mfrow=c(1,3))
+		hist(blastTable$ali.length[blastTable$subject == subject], breaks=breakValue, xlab="Alignment Length", main=subject)
+		hist(blastTable$bit.score[blastTable$subject == subject], breaks=breakValue, xlab="Bit Score", main=subject)
+		hist(blastTable$percent.id[blastTable$subject == subject], breaks=breakValue, xlab="% identity", main=subject)
+	}	else  {
+		warning(paste("No data for ", subject))
+	}
+}
+
+printBlastResultGraphs <- function(designObject, markerList=designObject@markers, fileName="blastResultGraphs.pdf") {
+	topHits <- getTopBlastHits(designObject@markerBlastResults)
+	pdf(fileName,height=4)
+	for(thisMarker in names(markerList))  {
+		inspectBlastResults(topHits, thisMarker )
+	}
+	dev.off()
+}
+
+
+
+
+
+
 
 
