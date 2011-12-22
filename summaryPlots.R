@@ -43,7 +43,92 @@ printBlastResultGraphs(intersect.cleanRun.Design)
 
 ############ genotyping calls.
 
+# want methods plot to screen (single genotypeCall (or table?)) or to file (single or list).
+
+
+# rework to use genotypeCall object
+plotGenotypeEvidence.genotypeCall <- function(genotypeCall)  {
+	genotypeTable <- genotypeCall@genotypeTable
+	thisMarker	<- genotypeCall@marker
+	minTotalReads <- genotypeCall@callParameters['minTotalReads']
+	minDiffToVarThree <- genotypeCall@callParameters['minDiffToVarThree']
+	minPropDiffHomHetThreshold <- genotypeCall@callParameters['minPropDiffHomHetThreshold']
+
+	if(sum(genotypeTable$numbSeqs) < 1)  {
+		warning(paste("No seqs to plot for",thisMarker), call.=F)
+		return()
+	}
+	
+	statusList <- as.factor(genotypeTable$status)
+	pchList <- statusList
+	levels(pchList) <- (1:nlevels(pchList ))
+	#levels(pchList) <- 20+(1:nlevels(pchList ))
+
+
+	par(mfrow=c(2,3))
+	hist( genotypeTable$numbSeqs, breaks=20, main=thisMarker, xlab="numbSeqs"); abline(v=minTotalReads , lty=2)
+	hist( genotypeTable$diffToVarThree, breaks=20, main=thisMarker, xlab="diffToVarThree", xlim=c(0,1)); abline(v=minDiffToVarThree , lty=2)
+	hist(genotypeTable$propDiffHomHet, breaks=20, main=thisMarker, xlab="propDiffHomHet", xlim=c(0,1)) ; abline(v=minPropDiffHomHetThreshold , lty=2)
+
+	plot(genotypeTable$diffToVarThree,genotypeTable$propDiffHomHet, main=thisMarker, xlab="diffToVarThree", ylab="propDiffHomHet",xlim=c(0,1), ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minPropDiffHomHetThreshold , lty=2); abline(v=minDiffToVarThree , lty=2)
+	legend("topleft", levels(as.factor(genotypeTable$status)), pch=as.numeric(levels(pchList)))
+	plot(genotypeTable$numbSeqs,genotypeTable$diffToVarThree, main=thisMarker, xlab="numbSeqs", ylab="diffToVarThree", ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minDiffToVarThree , lty=2); abline(v=minTotalReads , lty=2)
+	plot(genotypeTable$numbSeqs,genotypeTable$propDiffHomHet, main=thisMarker, xlab="numbSeqs", ylab="propDiffHomHet", ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minPropDiffHomHetThreshold , lty=2); abline(v=minTotalReads , lty=2)
+
+
+}
+
+plotGenotypeEvidence.genotypeCall.file <- function(genotypeCall, file)  {
+	if(length(grep(".pdf$", file) ) < 1) {
+		file <- paste(file,"pdf", sep=".")
+	}
+	pdf(file)
+	plotGenotypeEvidence.genotypeCall(genotypeCall)
+	dev.off()
+	cat("Results output to", file, "\n")
+
+}
+
+
+# list must have a file specified for output
+plotGenotypeEvidence.list <- function(callList, file) {
+	if(length(grep(".pdf$", file) ) < 1) {
+		file <- paste(file,"pdf", sep=".")
+	}
+	pdf(file)
+	for(thisCall in callList) {
+		#cat(thisCall@marker)
+		plotGenotypeEvidence.genotypeCall(thisCall)
+	}
+	dev.off()
+	cat("Results output to", file, "\n")	
+	
+}
+
+
+plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
+setGeneric("plotGenotypeEvidence")
+
+setMethod("plotGenotypeEvidence", signature(genotypeCall="missing", callList="list", file="character"), definition=plotGenotypeEvidence.list)
+
+setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="character"), definition=plotGenotypeEvidence.genotypeCall.file)
+
+setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="missing"), definition=plotGenotypeEvidence.genotypeCall)
+
+
+# examples using raw methods
+plotGenotypeEvidence.genotypeCall(test.genotypes[[7]])
+plotGenotypeEvidence.genotypeCall.file(test.genotypes[[7]], "testGenoEvidence.pdf")
+plotGenotypeEvidence.list(test.genotypes, file="testMultiGenoEvidence.pdf")
+
+# examples using generic
+plotGenotypeEvidence(genotypeCall=test.genotypes[[7]])
+plotGenotypeEvidence(genotypeCall=test.genotypes[[7]], file="testGenoEvidence.pdf")
+plotGenotypeEvidence(test.genotypes, file="testMultiGenoEvidence.pdf")
+
+
 # need to distinguish sampleMarker table from same with genotype calls. Currently calss callGenotypes on the whole table.
+
 plotGenotypeEvidence <- function(sampleMarkerTable,thisMarker,
 			minDiffToVarThree = 0.4, minTotalReads = 50, minPropDiffHomHetThreshold = 0.3 )  {
 	test.genotypes <- callGenotypes(sampleMarkerTable)

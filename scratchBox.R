@@ -29,6 +29,11 @@ test.genotypes <- callGenotypes.mlgtResult(intersect.cleanRun.Result,  mapAllele
 # testing marker specific parameters. FAILED
 test.genotypes <- callGenotypes.mlgtResult(intersect.cleanRun.Result,  mapAlleles=FALSE, minTotalReads=seq(20,200, 10))
 
+writeGenotypeCallsToFile(test.genotypes)								
+writeGenotypeCallsToFile(test.genotypes, singleFile=F, file="genotypeTable.tab")
+writeGenotypeCallsToFile(genotypeCall=test.genotypes[[1]])
+
+
 
 #############################################################
 #testing different overwrite values
