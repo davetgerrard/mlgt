@@ -22,7 +22,7 @@ fastacmdPath <- "C:/Users/Public/Apps/Blast/bin/fastacmd.exe"
 blastAllPath <- "C:/Users/Public/Apps/Blast/bin/blastall.exe"
 musclePath <- "C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe"
 
-source("C:/Users/dave/HalfStarted/mlgt/mlgt_classes.R")
+source("C:/Users/dave/HalfStarted/mlgt/mlgt.R")
 
 
 

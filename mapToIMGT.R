@@ -24,6 +24,11 @@
 
 library(seqinr)
 
+# wanted reference to be of SeqFastadna, but unrecognised even with seqinr loaded.
+setClass("variantMap", representation(reference='ANY', variantSource='character',variantMap='list',
+							inputVariantCount='integer', uniqueSubVariantCount='integer'))
+
+
 # not needed anymore as fixed the issue with read.alignment. 
 read.msf <- function(file, forceToLower = TRUE)  {
 	if (file.access(file, mode = 4) != 0) 
@@ -38,16 +43,25 @@ read.msf <- function(file, forceToLower = TRUE)  {
 }
 
 #TODO: get this to return a proper classed object.
-createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile)  {
+createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alignFormat="msf", sourceName=alignedAlleleFile, remTempFiles=TRUE)  {
 	## The aligned alleles must have unique names and the markerName must be different too. TODO: test for this.
 	## TODO put default input file format (MSF). Make check for fasta format (can skip first part if already fasta).
 	## clean up (remove) files. This function probably doesn't need to keep any files
 	## Use defined class for return object giving marker sequence used as reference. 
 	#alignedAlleles <- read.msf(alignedAlleleFile)
-	alignedAlleles <- read.alignment(alignedAlleleFile, format="msf")
-	alignedAlleleFastaFile <- paste(markerName, "alignedAlleles.fasta", sep=".")
-	write.fasta(alignedAlleles[[3]], alignedAlleles[[2]], file=alignedAlleleFastaFile)
-#}	# TEMP END
+		
+	switch(alignFormat,
+		"msf" =   {
+			alignedAlleles <- read.alignment(alignedAlleleFile, format="msf")
+			alignedAlleleFastaFile <- paste(markerName, "alignedAlleles.fasta", sep=".")
+			write.fasta(alignedAlleles[[3]], alignedAlleles[[2]], file=alignedAlleleFastaFile)
+			}, 
+		"fasta" = {
+			alignedAlleleFastaFile = alignedAlleleFile
+			},
+		stop("Unrecognised alignment file format\n")
+	)
+	
 	markerSeqFile <- paste(markerName, "markerSeq.fasta", sep=".")
 	write.fasta(markerSeq, markerName, file=markerSeqFile )
 	#muscle -profile -in1 existing_aln.afa -in2 new_seq.fa -out combined.afa
@@ -56,7 +70,7 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile)  {
 	muscleCommand <- paste(musclePath, "-quiet -profile -in1", alignedAlleleFastaFile, "-in2", markerSeqFile, "-out" ,markerToAlleleDbAlign )
 	system(muscleCommand)
 
-#}	# TEMP END
+
 
 	### this section copied from getSubSeqsTable()  Could be recoded as function?
 
@@ -67,16 +81,18 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile)  {
 	subStart <- min(grep("-",alignedMarkerSeq ,invert=T))
 	subEnd <- max(grep("-",alignedMarkerSeq ,invert=T))
 	alignedSubSeqs <- lapply(rawAlignment, FUN=function(x)	substr(x[1], subStart, subEnd))
-	#subAlignFile <- paste(thisMarker, "IMGT", "sub.align.fasta",sep=".")  #"localAlign.fasta"
-	#write.fasta(alignedSubSeqs , names(alignedSubSeqs ), file=subAlignFile )
 
 	alignedSubTable <- data.frame(name =  names(alignedSubSeqs ) , subSeq.aligned= as.character(unlist(alignedSubSeqs )))
 	alignedSubTable$subSeq.stripped <-  gsub("-", "",alignedSubTable$subSeq.aligned )
-	## TODO: remove marker sequence from allele subalignment list. DONE!
+	# remove marker sequence from allele subalignment list.
 	alignedSubTable <- subset(alignedSubTable, name != markerName)
 
 	alleleMap <- split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)
-	return(list(reference=as.SeqFastadna(markerSeq, markerName), alleleMap=alleleMap, inputAlleleCount = length(unlist(alleleMap)), uniqueSubAlleleCount=length(alleleMap)))
+	if(remTempFiles) {
+		file.remove(markerSeqFile)
+	}
+	#return(list(reference=as.SeqFastadna(markerSeq, markerName), alleleMap=alleleMap, inputAlleleCount = length(unlist(alleleMap)), uniqueSubAlleleCount=length(alleleMap)))
+	return(new("variantMap", reference=as.SeqFastadna(markerSeq, markerName), variantSource=sourceName, variantMap=alleleMap, inputVariantCount = length(unlist(alleleMap)), uniqueSubVariantCount=length(alleleMap)))
 }
 
 
@@ -96,6 +112,11 @@ for(thisMarker in names(intersectMarkerList)) {
 }
 
 stopifnot(FALSE)
+
+##############
+
+
+test <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], "E_E3_ampA_E3.alignedAlleles.fasta", alignFormat="fasta")
 
 
 ##############

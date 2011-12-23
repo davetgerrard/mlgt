@@ -59,16 +59,29 @@ setClass("genotypeCall",
 )
 
 
-makeVarAlleleMap <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),varMarkers=names(varDb))  {
+makeVarAlleleMap <- function(allele.variantMap, variant.variantMap)  {
+			varAlleleMap <- data.frame()
+			# to use stopifnot, need to ensure no empty maps are passed. Currently this is happening so taking out this check.
+			#stopifnot(allele.variantMap@reference == variant.variantMap@reference)
+			knownAlleleTable <- data.frame(alleleSeq=names(allele.variantMap@variantMap), knownAlleles=as.character(allele.variantMap@variantMap))
+
+
+			dataAlleleTable <-  data.frame(alleleSeq=names(variant.variantMap@variantMap), varNames=as.character(variant.variantMap@variantMap))
+			
+			varAlleleMap <- merge(knownAlleleTable, dataAlleleTable , by="alleleSeq")
+}
+
+# deprecated and/or defunct
+makeVarAlleleMap.list <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),varMarkers=names(varDb))  {
 			knownAlleleTable <- data.frame()
 			for(thisMarker in alleleMarkers)  {
-				knownAlleleTable <- rbind(knownAlleleTable , data.frame(alleleSeq=names(alleleDb[[thisMarker]]$alleleMap), knownAlleles=as.character(alleleDb[[thisMarker]]$alleleMap)))
+				knownAlleleTable <- rbind(knownAlleleTable , data.frame(alleleSeq=names(alleleDb[[thisMarker]]@alleleMap), knownAlleles=as.character(alleleDb[[thisMarker]]@alleleMap)))
 			}
 
 			dataAlleleTable <- data.frame()
 			for(thisMarker in varMarkers)  {
 				# this first line is what it SHOULD be like, once mlgtResult is updated to match the alleleDb format. Need new class: alleleDb
-				dataAlleleTable <- rbind(dataAlleleTable , data.frame(alleleSeq=names(varDb[[thisMarker]]$alleleMap), varNames=as.character(varDb[[thisMarker]]$alleleMap)))
+				dataAlleleTable <- rbind(dataAlleleTable , data.frame(alleleSeq=names(varDb[[thisMarker]]@alleleMap), varNames=as.character(varDb[[thisMarker]]@alleleMap)))
 				#dataAlleleTable <- rbind(dataAlleleTable , data.frame(alleleSeq=names(varDb[[thisMarker]]), varNames=as.character(varDb[[thisMarker]])))
 			}
 			
@@ -149,6 +162,7 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 			subTable <- subTable[match(sampleList,subTable$sample),]	
 			if(nrow(subTable) < 1)  {
 				# do nothing with this marker
+				warning(paste("No data for:",thisMarker))
 			} else {
 				genotypeTable <- callGenotypes(subTable , alleleDb=alleleDb, method=method,minTotalReads=minTotalReads[i], 
 					minDiffToVarThree=minDiffToVarThree[i],
@@ -159,9 +173,18 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 					if(is.null(alleleDb)) {
 						warning("No alleleDb specified\n")
 					}	else {
-						varAlleleMap <- makeVarAlleleMap(alleleDb, resultObject@alleleDb, alleleMarkers=markerList, varMarkers=markerList)
-						genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
-						genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
+						if(is.null(alleleDb[[thisMarker]])) {
+							warning(paste("No known alleles for",thisMarker))
+						} else  {
+							if(is.null(resultObject@alleleDb[[thisMarker]])) {
+								warning(paste("No variants for",thisMarker))
+							} else  {
+								#varAlleleMap <- makeVarAlleleMap(alleleDb, resultObject@alleleDb, alleleMarkers=markerList, varMarkers=markerList)
+								varAlleleMap <- makeVarAlleleMap(allele.variantMap=alleleDb[[thisMarker]], variant.variantMap=resultObject@alleleDb[[thisMarker]])
+								genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
+								genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
+							}
+						}
 					}
 				}
 				callResults[[thisMarker]] <- new("genotypeCall", 
@@ -178,21 +201,6 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 
 
 		}
-#	} else {
-#		# single parameter values. Genotype all markers as one.
-#		for(thisMarker in markerList)  {
-#			subTable <- resultObject@markerSampleList[[thisMarker]]
-#			subTable <- subTable[match(sampleList,subTable$sample),]
-#			runTable <- rbind(runTable,subTable)		
-#		}
-#		genotypeTable <- callGenotypes(runTable , alleleDb=alleleDb, minTotalReads=minTotalReads, 
-#					maxPropUniqueVars=maxPropUniqueVars, 
-#					minPropToCall=minPropToCall, minDiffToVarThree=minDiffToVarThree,
-#					minPropDiffHomHetThreshold=minPropDiffHomHetThreshold, mapAlleles=mapAlleles)
-#
-#	}
-
-
 	
 	#return(genotypeTable)
 	return(callResults)
@@ -202,7 +210,7 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 }
 
 
-# TODO default for 'file' could be derived from project, run, marker attributes of genotypeCall.
+# default for 'file' could be derived from project, run, marker attributes of genotypeCall.
 writeGenotypeCallsToFile.genotypeCall <- function(genotypeCall, file=paste("genoCalls",genotypeCall@projectName,genotypeCall@runName,genotypeCall@marker,"tab",sep="."),
 							writeParams=FALSE, appendValue=FALSE)  {
 	if(writeParams)  {
