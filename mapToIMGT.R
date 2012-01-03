@@ -111,6 +111,8 @@ for(thisMarker in names(intersectMarkerList)) {
 	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], imgtAlignFile)
 }
 
+# need format/methods to save this to and load it from disk. 
+
 stopifnot(FALSE)
 
 ##############

@@ -1,5 +1,71 @@
 # require(seqinr)
 
+
+# wanted reference to be of SeqFastadna, but unrecognised even with seqinr loaded.
+setClass("variantMap", representation(reference='ANY', variantSource='character',variantMap='list',
+							inputVariantCount='integer', uniqueSubVariantCount='integer'))
+
+
+
+
+createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alignFormat="msf", sourceName=alignedAlleleFile, remTempFiles=TRUE)  {
+	## The aligned alleles must have unique names and the markerName must be different too. TODO: test for this.
+	## TODO put default input file format (MSF). Make check for fasta format (can skip first part if already fasta).
+	## clean up (remove) files. This function probably doesn't need to keep any files
+	## Use defined class for return object giving marker sequence used as reference. 
+	#alignedAlleles <- read.msf(alignedAlleleFile)
+		
+	switch(alignFormat,
+		"msf" =   {
+			alignedAlleles <- read.alignment(alignedAlleleFile, format="msf")
+			alignedAlleleFastaFile <- paste(markerName, "alignedAlleles.fasta", sep=".")
+			write.fasta(alignedAlleles[[3]], alignedAlleles[[2]], file=alignedAlleleFastaFile)
+			}, 
+		"fasta" = {
+			alignedAlleleFastaFile = alignedAlleleFile
+			},
+		stop("Unrecognised alignment file format\n")
+	)
+	
+	markerSeqFile <- paste(markerName, "markerSeq.fasta", sep=".")
+	write.fasta(markerSeq, markerName, file=markerSeqFile )
+	#muscle -profile -in1 existing_aln.afa -in2 new_seq.fa -out combined.afa
+	markerToAlleleDbAlign <- paste(markerName, "allignedToAlleles.fasta", sep=".")
+	# profile alignment of marker to existing allele alignment
+	muscleCommand <- paste(musclePath, "-quiet -profile -in1", alignedAlleleFastaFile, "-in2", markerSeqFile, "-out" ,markerToAlleleDbAlign )
+	system(muscleCommand)
+
+
+
+	### this section copied from getSubSeqsTable()  Could be recoded as function?
+
+	# Extract portion corresponding to reference. 
+
+	rawAlignment <- read.fasta(markerToAlleleDbAlign , as.string=T)		# do not use read.alignment() - broken
+	alignedMarkerSeq <- s2c(rawAlignment[[thisMarker]])
+	subStart <- min(grep("-",alignedMarkerSeq ,invert=T))
+	subEnd <- max(grep("-",alignedMarkerSeq ,invert=T))
+	alignedSubSeqs <- lapply(rawAlignment, FUN=function(x)	substr(x[1], subStart, subEnd))
+
+	alignedSubTable <- data.frame(name =  names(alignedSubSeqs ) , subSeq.aligned= as.character(unlist(alignedSubSeqs )))
+	alignedSubTable$subSeq.stripped <-  gsub("-", "",alignedSubTable$subSeq.aligned )
+	# remove marker sequence from allele subalignment list.
+	alignedSubTable <- subset(alignedSubTable, name != markerName)
+
+	alleleMap <- split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)
+	if(remTempFiles) {
+		file.remove(markerSeqFile)
+	}
+	#return(list(reference=as.SeqFastadna(markerSeq, markerName), alleleMap=alleleMap, inputAlleleCount = length(unlist(alleleMap)), uniqueSubAlleleCount=length(alleleMap)))
+	return(new("variantMap", reference=as.SeqFastadna(markerSeq, markerName), variantSource=sourceName, variantMap=alleleMap, inputVariantCount = length(unlist(alleleMap)), uniqueSubVariantCount=length(alleleMap)))
+}
+
+
+
+
+
+
+
 setClass("mlgtDesign", 
 	representation(
 		projectName="character", 
@@ -324,6 +390,7 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	}  # end of sample loop
 
 	markerSampleList[[thisMarker]] <- summaryTable
+	## TODO: min(nchar(names(variantList))) throws warning when no variants in list. (Inf/-Inf)
 	runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
 					minVariantLength=min(nchar(names(markerSequenceCount))), 
 					maxVariantLength=max(nchar(names(markerSequenceCount))),
@@ -385,6 +452,7 @@ setMethod("prepareMlgtRun",
 prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 	cat(paste(designObject@projectName,"\n"))
 
+	runPath <- getwd()	# could change this later
 	fTagsFastaFile <- paste(runPath,"fTags.fasta", sep="/")		
 	rTagsFastaFile <- paste(runPath,"rTags.fasta", sep="/")
 	markersFastaFile <- paste(runPath,"markers.fasta", sep="/")
@@ -409,18 +477,18 @@ prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 		if(!overWriteBaseData) {stop("This folder already contains mlgt run files. Exiting")}
 	}					
 
-	runPath <- getwd()
+	#runPath <- getwd()
 	# set up blast DBs
 	cat("Setting up BLAST DBs...\n")
 
-	write.fasta(designObject@fTags, names(designObject@fTags), file=fastaFile )
+	write.fasta(designObject@fTags, names(designObject@fTags), file=fTagsFastaFile)
 	setUpBlastDb(fTagsFastaFile , formatdbPath, blastdbName="fTags")		# default is no index
 
-	write.fasta(designObject@rTags, names(designObject@rTags), file=fastaFile )
+	write.fasta(designObject@rTags, names(designObject@rTags), file=rTagsFastaFile )
 	setUpBlastDb(rTagsFastaFile , formatdbPath, blastdbName="rTags")		# default is no index
 
 	write.fasta(designObject@markers, names(designObject@markers), file=markersFastaFile )
-	setUpBlastDb(fastaFile , formatdbPath, blastdbName="markerSeqs", indexDb="T") 
+	setUpBlastDb(markersFastaFile , formatdbPath, blastdbName="markerSeqs", indexDb="T") 
 
 	## input as blast DB with index (useful for fast sub-sequence retrieval?)
 	inputFastaFile <- designObject@inputFastaFile		#
