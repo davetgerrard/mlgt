@@ -36,7 +36,7 @@ NULL
 
 # require(seqinr)
 
-
+# n/b @ slot not currently recognised by roxygen.
 # wanted reference to be of SeqFastadna, but unrecognised even with seqinr loaded.
 #' An S4 class to hold all unique variants found/known for a marker.
 #' 
@@ -66,7 +66,7 @@ setClass("variantMap", representation(reference='ANY', variantSource='character'
 #'  the value of alignedAlleleFile
 #' @param remTempFiles Boolean. Whether to clean up temporary alignment files. Default = TRUE
 #' 
-#' @return a \code variantMap object named by markerName
+#' @return a \code{\link{variantMap}} object named by markerName
 #'
 #' @export
 #' @docType methods
@@ -127,7 +127,18 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 
 #' An S4 class that holds information about an mlgt analysis.
 #'
-#' 
+#' Returned by \code{\link{prepareMlgtRun}}. Used as sole input for \code{\link{mlgt}}
+#'
+#' \describe{
+#'   \item{projectName}{In which project does this run belong}
+#'   \item{runName}{Which run was this. An identifier for the sequnece run}
+#'   \item{markers}{A \emph{list} of named sequences.} 
+#'   \item{samples}{A vector of sample names} 
+#'   \item{fTags}{A vector of named sequence of MIDs used to barcode samples at the 5' end.}
+#'   \item{rTags}{A vector of named sequence of MIDs used to barcode samples at the 3' end.}
+#'   \item{inputFastaFile}{The name of the file containing sequences. Currently only fasta format is supported. It is up to you to pre-filter the sequences.}
+#'  }
+#'
 #' @slot projectName In which project does this run belong
 #' @slot runName Which run was this. An identifier for the sequnece run
 #' @slot markers	A \emph{list} of named sequences. 
@@ -135,6 +146,7 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 #' @slot fTags A vector of named sequence of MIDs used to barcode samples at the 5' end.
 #' @slot rTags A vector of named sequence of MIDs used to barcode samples at the 3' end.
 #' @slot inputFastaFile The name of the file containing sequences. Currently only fasta format is supported. It is up to you to pre-filter the sequences.
+#' @seealso \code{\link{prepareMlgtRun}}, \code{\link{mlgt}}
 setClass("mlgtDesign", 
 	representation(
 		projectName="character", 
@@ -177,6 +189,25 @@ setMethod("print", "mlgtDesign", definition= function(x, ...){
 #)
 
 
+#' An S4 class to hold results from \code{\link{mlgt}}
+#'
+#' Extends \code{\link{mlgtDesign}}
+#'
+#' \describe{
+#'   \item{projectName}{In which project does this run belong}
+#'   \item{runName}{Which run was this. An identifier for the sequnece run}
+#'   \item{markers}{A \emph{list} of named sequences.} 
+#'   \item{samples}{A vector of sample names} 
+#'   \item{fTags}{A vector of named sequence of MIDs used to barcode samples at the 5' end.}
+#'   \item{rTags}{A vector of named sequence of MIDs used to barcode samples at the 3' end. May be same as \code{fTags}}
+#'   \item{inputFastaFile}{The name of the file containing sequences. Currently only fasta format is supported. It is up to you to pre-filter the sequences.}
+#'   \item{runSummaryTable}{A summary table with one row per marker}
+#'   \item{alleleDb}{A list of objects of class \code{\link{variantMap}}. Contains all variants returned by \code{\link{mlgt}}}
+#'   \item{markerSampleList}{A list of tables, one table per marker giving results for each sample/MID}
+#'  }
+#'
+#' @seealso \code{\link{mlgtDesign}}, \code{\link{prepareMlgtRun}}, \code{\link{mlgt}}
+#'
 setClass("mlgtResult", 
 	representation(
 			runSummaryTable="data.frame",
@@ -189,16 +220,6 @@ setClass("mlgtResult",
 
 
 
-#' Title text
-#' 
-#' Summary Text
-#'
-#' details text
-#' 
-#' @param something
-#'
-#' @return something
-#'
 getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each query in the table. May now be partially redundant if selecting for number of blast hits returned..
 	blastResults <- read.delim(blastTableFile, header=F)
 	## Fields: 
@@ -208,15 +229,20 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 }
 
 
-#' Title text
+#' Align and trim sequences for marker/sample pair
 #' 
-#' Summary Text
+#' A list of sequences mapped to both \option{thisMarker} and \option{thisSample} is created and these sequences are aligned to \option{markerSeq}.
 #'
-#' details text
+#' This internal function is called by \code{\link{mlgt}}
 #' 
-#' @param something
+#' @param thisMarker
+#' @param thisSample
+#' @param sampleMap A list of sequence IDs assigned to each marker. Each element named by marker name.
+#' @param fMarkerMap A list of sequence IDs assigned to each sample using BLAST hits in forward orientation. Each element named by sample name.
+#' @param rMarkerMap A list of sequence IDs assigned to each sample using BLAST hits in reverse orientation. Each element named by sample name.
+#' @param markerSeq The sequence of \option{thisMarker}
 #'
-#' @return something
+#' @return A table of unique variants and their counts. The sequences have been trimmed to the portion aligned with \option{markerSeq}
 #'
 getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq)  {
 
@@ -327,21 +353,21 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #mlgt <- function(object) attributes(object)
 #setGeneric("mlgt")
 
-#' Title text
+#' Get variants for all markers/samples
 #' 
-#' Summary Text
+#' \code{mlgt} Works through all pairs of markers and samples. Aligns variants and trims aligned variants to the marker sequence. 'Alleles' are assigned from the most common variants within each sample.
 #'
-#' details text
+#' Depends upon \code{\link{prepareMlgtRun}} having been run in the current directory to generate \option{designObject} of class \code{\link{mlgtDesign}}
 #' 
 #' @param designObject an object of class \code{\link{mlgtDesign}}
 #'
-#' @return an object of class \code{\link{mlgtResult}}
-#' @author Dave T. Gerrard <david.gerrard@@manchester.ac.uk>
+#' @return an object of class \code{\link{mlgtResult}} containing all variants and their counts, a summary table (all markers) and one summary table per marker.
 #' @seealso \code{\link{prepareMlgtRun}}
 #'
 #' @export
 #' @docType methods
 #' @rdname mlgt-methods
+#' @references MUSCLE
 #' @aliases mlgt.mlgtDesign
 mlgt <- function(designObject) attributes(designObject)
 setGeneric("mlgt")
@@ -353,8 +379,8 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
 	rMarkerMap <- split(as.character(topHits$query[topHits$strand==2]), topHits$subject[topHits$strand==2])
 
-## NEED TO MAKE SAMPLEMAP WITH HITS TO MID IN BOTH FORWARD AND REVERSE STRANDS like marker hits are split.
-## Requires retention of 2 blast hits per sequence.
+	## NEED TO MAKE SAMPLEMAP WITH HITS TO MID IN BOTH FORWARD AND REVERSE STRANDS like marker hits are split.
+	## Requires retention of 2 blast hits per sequence.
 	topSampleHits <- read.delim("blastOut.rTags.tab", header=F)
 	names(topSampleHits ) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
 	topSampleHits$strand <- ifelse(topSampleHits$s.end > topSampleHits$s.start, 1,2)
@@ -364,7 +390,7 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	pairedSampleMap <- lapply(names(fSampleMap), FUN=function(x) intersect(fSampleMap[[x]], rSampleMap[[x]]))
 	names(pairedSampleMap) <- names(fSampleMap)
 
-##########ITERATIONS
+	##########ITERATIONS
 
 	markerSampleList <- list()
 	runSummaryTable <- data.frame()
@@ -517,15 +543,17 @@ mlgt.mlgtDesign  <- function(designObject)  {
 
 setMethod("mlgt","mlgtDesign", definition=mlgt.mlgtDesign)
 
-#' Title text
+#' Create a local BLAST db 
 #' 
-#' Summary Text
+#' This internal utility uses \code{system(fomatdb)} to create a local BLAST database
 #'
-#' details text
+#' Requires the NCBI program formatdb to be installed and the environment variable formatdbPath to be set.
 #' 
-#' @param something
+#' @param inputFastaFile
+#' @param formatdbPath
+#' @param blastdbName 
+#' @param indexDb Whether to generate and index for the db. Useful for large db of sequences, which are later to be extracted with fastacommand
 #'
-#' @return something
 #'
 setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")  {
 	formatdbCommand <- paste(formatdbPath, "-i", inputFastaFile ,  "-p F -o", indexDb ,"-n", blastdbName)
@@ -539,15 +567,23 @@ setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")
 
 #prepareMlgtRun <- function(object) attributes(object)
 #prepareMlgtRun <- function(designObject) attributes(designObject)
-#' Title text
+#' Prepare to run mlgt
 #' 
-#' Summary Text
+#' Required before \code{\link{mlgt}} is used. Create BLAST databases and assign sequences using BLAST. 
 #'
 #' details text
 #' 
-#' @param something
+#' @param projectName In which project does this run belong
+#' @param runName Which run was this. An identifier for the sequnece run
+#' @param markers	A \emph{list} of named sequences. 
+#' @param samples A vector of sample names 
+#' @param fTags A vector of named sequence of MIDs used to barcode samples at the 5' end.
+#' @param rTags A vector of named sequence of MIDs used to barcode samples at the 3' end.
+#' @param inputFastaFile The name of the file containing sequences. Currently only fasta format is supported. It is up to you to pre-filter the sequences.
+#' @param overwrite Should files in the current directory be overwritten? c("prompt", "yes", "no")
 #'
-#' @return something
+#' @return An object of class \code{\link{mlgtDesign}} is returned. Also, several BLAST dbs and sets of BLAST results are created in the working directory.
+#'	These are essential for \code{\link{mlgt}} to run.
 #'
 #' @aliases prepareMlgtRun.listDesign,prepareMlgtRun.mlgtDesign 
 prepareMlgtRun <- function(designObject,projectName,runName, samples, markers,fTags,rTags, inputFastaFile, overwrite) attributes(designObject)
@@ -658,7 +694,22 @@ setMethod("prepareMlgtRun",
 
 ######################### genotyping & allele matching
 
-
+#' Results from \code{\link{callGenotypes}}
+#'
+#' An S4 class containing a table and parameter values returned by \code{\link{callGenotypes}}
+#'
+#' \describe{
+#'   \item{projectName}{In which project does this run belong}
+#'   \item{runName}{Which run was this. An identifier for the sequnece run}
+#'   \item{marker}{Which marker was this.} 
+#'   \item{genotypeTable}{A data frame with variant counts, statistics, genotype calls and, optionally, allele names.}
+#'   \item{callMethod}{Which method was used to call genotypes}
+#'   \item{callParameters}{a named list containing parameter values used in the call}
+#'   \item{mappedToAlleles}{TRUE/FALSE whether an attempt was made to map the variants to a db on known alleles.}
+#'   \item{alleleDbName}{A list of objects of class \code{\link{variantMap}}. Contains all variants returned by \code{\link{mlgt}}}
+#'  }
+#'
+#' @seealso \code{\link{callGenotypes}}, \code{\link{writeGenotypeCallsToFile}}
 setClass("genotypeCall", 
 	representation(
 		projectName="character", 
@@ -700,16 +751,6 @@ makeVarAlleleMap <- function(allele.variantMap, variant.variantMap)  {
 }
 
 # deprecated and/or defunct
-#' Title text
-#' 
-#' Summary Text
-#'
-#' details text
-#' 
-#' @param something
-#'
-#' @return something
-#'
 makeVarAlleleMap.list <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),varMarkers=names(varDb))  {
 			knownAlleleTable <- data.frame()
 			for(thisMarker in alleleMarkers)  {
@@ -727,24 +768,28 @@ makeVarAlleleMap.list <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),
 }
 
 
-#' callGenotypes 
+## call genotypes on an "mlgtResult" object. Can select specific markers/samples to return. 
+#' Make genotype calls
 #' 
-#' Summary Text
+#' Apply a genotype call method to a table or list of tables of variant data such as the \code{markerSampleList} table of an \code{\link{mlgtResult}}.
 #'
-#' details text
+#' After \code{\link{mlgt}} has generated tables of the most common variants assigned in each marker/sample pair, an attempt can be made to call genotypes.
+#' This is kept separate because users might want to try different calling methods and have the option to map to a known set of alleles. 
 #' 
-#' @param table
-#' @param alleleDb
-#' @param method
-#' @param minTotalReads
-#' @param maxPropUniqueVars
-#' @param minPropToCall
-#' @param minDiffToVarThree
-#' @param minPropDiffHomHetThreshold
-#' @param mapAlleles
+#' @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
+#' @param table [Separate usage]
+#' @param alleleDb A list of \code{\link{variantMap}} objects derived from known alleles. As made by \code{\link{createKnownAlleleDb}}
+#' @param method How to call genotypes. Currently only "custom" is implemented.
+#' @param minTotalReads Minimum number of reads before attempting to call genotypes
+#' @param maxPropUniqueVars NOT USED
+#' @param minPropToCall NOT USED
+#' @param minDiffToVarThree Difference between sum of counts of top two variants and the count of the third most variant, expressed as proportion of total. 
+#' @param minPropDiffHomHetThreshold Difference between counts of top two variants. One way to distinguish HOMOZYGOTES and HETEROZYGOTES.
+#' @param markerList Which of the markers do you want to call genotypes for (default is all).
+#' @param sampleList Which of the samples do you want to call genotypes for (default is all).
+#' @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
 #'
-#' @return something
-#' @author Dave T. Gerrard <david.gerrard@@manchester.ac.uk>
+#' @return list of call results including the call parameters and a table of calls. 
 #'
 #' @export
 #' @docType methods
@@ -777,16 +822,7 @@ callGenotypes <- function(table, alleleDb=NULL, method="custom", minTotalReads=5
 	return(table)
 }
 
-#' Title text
-#' 
-#' Summary Text
-#'
-#' details text
-#' 
-#' @param something
-#'
-#' @return something
-#'
+
 vectorOrRepeat <- function(paramValue, requiredLength) {
 	# Used by callGenotypes.mgltResult() to equalise lengths of parameter vectors when one has length > 1
 	if(length(paramValue) == requiredLength) {
@@ -801,7 +837,7 @@ vectorOrRepeat <- function(paramValue, requiredLength) {
 
 }
 
-## call genotypes on an "mlgtResult" object. Can select specific markers/samples to return. 
+
 callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
 					minPropToCall=0.1, minDiffToVarThree=0.4,
 					minPropDiffHomHetThreshold=0.3, markerList=names(resultObject@markers),
@@ -880,15 +916,20 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 
 
 # generic method. Need to give defaults if defaults to be set in specific forms.
-#' Title text
+#' Write genotype calls to file
 #' 
-#' Summary Text
+#' A genotype call table or a list of tables can be written to tab-delimited file(s). 
 #'
 #' details text
 #' 
-#' @param something
+#' @param callList A \code{list} of genotypes calls.
+#' @param genotypeCall A single table of genotype calls
+#' @param file The file to write to. If none specified, function will attempt to make one. Ignored if \option{singleFile = TRUE}.
+#' @param singleFile	FALSE/TRUE whether to concatenate results from a list of genotypeCalls
+#' @param writeParams List call parameter values at top of file? Beware using this option when \option{singleFile = TRUE}
+#' @param appendValue Used internally to concatenate results.
 #'
-#' @return something
+#' @return Writes tables in the current working directory. 
 #'
 #' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
 writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
@@ -950,16 +991,18 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 
 
 ########################## plotting
-#' Title text
+#' Plot BLAST statisitics for one marker
 #' 
-#' Summary Text
+#' \code{\link{prepareMlgtRun}} produces several BLAST tables. It is instructive to plot the BLAST results and assess the performance
+#'  of different markers. 
 #'
-#' details text
 #' 
-#' @param something
+#' 
+#' @param blastTable The file of BLAST results.
+#' @param subject The name of a single marker
 #'
-#' @return something
-#'
+#' @return Plots three histograms: 1. Alignment length, 2. Bit score, 3. % identity. 
+#' @seealso \code{\link{printBlastResultGraphs}}
 inspectBlastResults <- function(blastTable, subject)  {
 
 	#topHits <- getTopBlastHits(resultFile)
@@ -978,16 +1021,18 @@ inspectBlastResults <- function(blastTable, subject)  {
 }
 
 
-#' Title text
+#' Plot BLAST statistics for several markers to file
 #' 
 #' Summary Text
 #'
 #' details text
 #' 
-#' @param something
+#' @param designObject An object of class \code{\link{mlgtDesign}} which will contain the name of the blast results file \code{designObject@markerBlastResults}
+#' @param markerList Which markers to output. Defaults to \code{designObject@markers}
+#' @param fileName Defaults to "blastResultGraphs.pdf"
 #'
-#' @return something
-#'
+#' @return Plots BLAST results to a pdf file.
+#' @seealso \code{\link{inspectBlastResults}}
 printBlastResultGraphs <- function(designObject, markerList=designObject@markers, fileName="blastResultGraphs.pdf") {
 	topHits <- getTopBlastHits(designObject@markerBlastResults)
 	pdf(fileName,height=4)
@@ -1056,15 +1101,29 @@ plotGenotypeEvidence.list <- function(callList, file) {
 	
 }
 
-#' Title text
+
+
+
+
+#' Plot genotyping evidence
 #' 
-#' Summary Text
+#' Plot the distributions of values used in calling genotypes. 
 #'
-#' details text
+#' Currently only makes sense with "custom" method
 #' 
-#' @param something
+#' @param callList A \code{list} of genotypes calls.
+#' @param genotypeCall A single table of genotype calls
+#' @param file The file to write to. 
 #'
-#' @return something
+#' @return Create six plots for each marker with a genotypeCall table. 
+#' \enumerate {
+#' 	\item {Histogram of the number of sequences assigned to each sample}
+#' 	\item {Histogram of diffToVarThree parameter. Used to decide whether to make the call}
+#' 	\item {Histogram of propDiffHomHet parameter. Used to distinguish HOMOZYGOTES and HETEROZYGOTES}
+#' 	\item {propDiffHomHet against diffToVarThree  }
+#' 	\item {diffToVarThree against number of sequences}
+#' 	\item {propDiffHomHet against number of sequences}
+#' }
 #'
 #' @aliases plotGenotypeEvidence.list,plotGenotypeEvidence.genotypeCall.file,plotGenotypeEvidence.genotypeCall
 plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
