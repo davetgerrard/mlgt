@@ -1,0 +1,82 @@
+\documentclass[a4paper]{article}
+\usepackage{url}
+\title{mlgt}
+\author{Dave T. Gerrard}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+
+Add term definitions here for amplicon, marker, sample, MID, variant, allele, etc.
+
+A note on markers. You should use a sequence that is contained within the expected amplicon. I recommend NOT including the primer sequence as this is constrained by the primers used and may not reflect the true sequence of the samples. If you wish to compare your variants with alleles from an external source (e.g. the HLA database) then your marker sequence should be precisely bounded by the sequence that is in BOTH your amplicon and the allele sequences (e.g. the exon only part is good). 
+
+Currently, mlgt makes no checks for similarity across markers, but it does assign all sequences to the best possible marker, even if that marker was never amplified in your dataset. This is particularly an issue with HLA datasets where supposedly distinct loci have very similar sequences.
+
+\section{Installation}
+
+mlgt runs in R version 2.13 or greater \footnote[1]{It uses long variable names (\textgreater 256 bytes) only implemented since R 2.13.}.  mlgt depends on another R package (\emph{seqinr}) and several external applications. These must all be installed and working for mlgt to work.
+
+To assign sequences and retrieve specific sequences, mlgt makes use of the NCBI programs \emph{formatdb}, \emph{blastall} and \emph{fastacommand}, which are available here: \url{ftp://ftp.ncbi.nih.gov/blast/executables/release/2.2.24/}
+
+To align sequence variants, mlgt uses \emph{MUSCLE}, which is available here: \url{http://www.drive5.com/muscle/downloads.htm}
+
+Download the correct versions and follow the installation instructions (if any). Make a note of the installation directories or, even better, specify where you want the programs to be installed.
+
+On my machine the formatdb program is in ``C:/Users/Public/Apps/Blast/bin/formatdb.exe'' and MUSCLE is in ``C:/Users/Public/Apps/Muscle/muscle3.8.31\_i86win32.exe''
+
+The R package \emph{seqinr} should be installed from within R. You can do this from the packages menu or using this command:-
+
+<<eval=FALSE>>=
+install.packages("seqinr")
+@
+
+\paragraph{}
+
+To install mlgt from within R you can do this from the packages menu (Install packages from local zip files) or using this command:- 
+<<eval=FALSE>>=
+install.packages("mlgt_0.1.zip", repos=NULL)
+@
+
+\section{Using mlgt}
+
+Once installation is complete, you can begin to use mlgt. Load the library.
+
+<<eval=FALSE>>=
+library(mlgt)
+@
+
+\subsection{Describing your data}
+
+You will need to create some variables to describe your sequencing run. 
+Markers and markersequences
+Samples
+Sample MIDs
+fasta sequence file.
+
+\subsection{Prepare the analysis}
+
+prepareMlgtRun()
+
+inspectBlastResults()
+
+\subsection{Run mlgt}
+
+mlgt()
+
+\subsection{Call genotypes}
+
+callGenotypes()
+
+
+
+\end{document}
+
+
+
+
+
+
+
