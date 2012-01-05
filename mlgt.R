@@ -1,13 +1,75 @@
+#' mlgt: Multi-locus geno-typing in R
+#'
+#' \tabular{ll}{
+#' Package: \tab mlgt\cr
+#' Type: \tab Package\cr
+#' Version: \tab 0.1\cr
+#' Date: \tab 2012-01-04\cr
+#' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
+#' License: \tab GPL (>= 2)\cr
+#' LazyLoad: \tab yes\cr
+#' }
+#'
+#' mlgt sorts a batch of sequence by barcode and identity to 
+#' templates. It makes use of external applications BLAST and 
+#' MUSCLE. Genotypes are called and alleles can be compared
+#' to a reference list of sequences. 
+#' More information about each function can be found in 
+#' its help documentation.
+#'
+#' Some text
+#'
+#' The main functions are: 
+#' \code{\link{prepareMlgtRun}}, \code{\link{mlgt}},  
+#' \code{\link{callGenotypes}}, \code{\link{createKnownAlleleList}},  
+#' 
+#' ...
+#' 
+#' @references Dave T. Gerrard (2011). 
+#' @references BLAST
+#' @references MUSCLE
+#' @import seqinr
+#' @docType package
+#' @name mlgt-package
+NULL
+
+
 # require(seqinr)
 
 
 # wanted reference to be of SeqFastadna, but unrecognised even with seqinr loaded.
+#' An S4 class to hold all unique variants found/known for a marker.
+#' 
+#' @slot reference
+#' @slot variantSource
+#' @slot variantMap
+#' @slot inputVariantCount
+#' @slot uniqueSubVariantCount
 setClass("variantMap", representation(reference='ANY', variantSource='character',variantMap='list',
 							inputVariantCount='integer', uniqueSubVariantCount='integer'))
 
 
 
-
+#' Create \code{\link{variantMap}} object from allele alignment
+#' 
+#' Create a list of \code{\link{variantMap}} objects to store known alleles for each marker
+#'
+#' To compare variants produced using \code{\link{mlgt}} the sequences of the known
+#' alleles must be aligned to the same marker used to find the variants. 
+#' The resulting 
+#' 
+#' @param markerName 
+#' @param markerSeq something
+#' @param alialignedAlleleFile a sequence alignment 
+#' @param alignFormat the format of alignedAlleleFile. "msf" (the default) or "fasta"
+#' @param sourceName A character string to record the source of the alignment. Defaults to 
+#'  the value of alignedAlleleFile
+#' @param remTempFiles Boolean. Whether to clean up temporary alignment files. Default = TRUE
+#' 
+#' @return a \code variantMap object named by markerName
+#'
+#' @export
+#' @docType methods
 createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alignFormat="msf", sourceName=alignedAlleleFile, remTempFiles=TRUE)  {
 	## The aligned alleles must have unique names and the markerName must be different too. TODO: test for this.
 	## TODO put default input file format (MSF). Make check for fasta format (can skip first part if already fasta).
@@ -63,9 +125,16 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 
 
 
-
-
-
+#' An S4 class that holds information about an mlgt analysis.
+#'
+#' 
+#' @slot projectName In which project does this run belong
+#' @slot runName Which run was this. An identifier for the sequnece run
+#' @slot markers	A \emph{list} of named sequences. 
+#' @slot samples A vector of sample names 
+#' @slot fTags A vector of named sequence of MIDs used to barcode samples at the 5' end.
+#' @slot rTags A vector of named sequence of MIDs used to barcode samples at the 3' end.
+#' @slot inputFastaFile The name of the file containing sequences. Currently only fasta format is supported. It is up to you to pre-filter the sequences.
 setClass("mlgtDesign", 
 	representation(
 		projectName="character", 
@@ -80,6 +149,7 @@ setClass("mlgtDesign",
 		rTagBlastResults="character"
 	)
 )
+
 
 setMethod("print", "mlgtDesign", definition= function(x, ...){
 	cat("Design for mlgt run:\n")
@@ -107,7 +177,6 @@ setMethod("print", "mlgtDesign", definition= function(x, ...){
 #)
 
 
-
 setClass("mlgtResult", 
 	representation(
 			runSummaryTable="data.frame",
@@ -120,7 +189,16 @@ setClass("mlgtResult",
 
 
 
-
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each query in the table. May now be partially redundant if selecting for number of blast hits returned..
 	blastResults <- read.delim(blastTableFile, header=F)
 	## Fields: 
@@ -130,7 +208,16 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 }
 
 
-
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq)  {
 
 	varCountTable <- data.frame()
@@ -240,6 +327,22 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #mlgt <- function(object) attributes(object)
 #setGeneric("mlgt")
 
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param designObject an object of class \code{\link{mlgtDesign}}
+#'
+#' @return an object of class \code{\link{mlgtResult}}
+#' @author Dave T. Gerrard <david.gerrard@@manchester.ac.uk>
+#' @seealso \code{\link{prepareMlgtRun}}
+#'
+#' @export
+#' @docType methods
+#' @rdname mlgt-methods
+#' @aliases mlgt.mlgtDesign
 mlgt <- function(designObject) attributes(designObject)
 setGeneric("mlgt")
 
@@ -412,11 +515,18 @@ mlgt.mlgtDesign  <- function(designObject)  {
 
 }  # end of mlgt function
 
-###########################
-
 setMethod("mlgt","mlgtDesign", definition=mlgt.mlgtDesign)
 
-
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")  {
 	formatdbCommand <- paste(formatdbPath, "-i", inputFastaFile ,  "-p F -o", indexDb ,"-n", blastdbName)
 	system(formatdbCommand)
@@ -428,11 +538,21 @@ setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")
 
 
 #prepareMlgtRun <- function(object) attributes(object)
-prepareMlgtRun <- function(designObject) attributes(designObject)
+#prepareMlgtRun <- function(designObject) attributes(designObject)
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
+#' @aliases prepareMlgtRun.listDesign,prepareMlgtRun.mlgtDesign 
 prepareMlgtRun <- function(designObject,projectName,runName, samples, markers,fTags,rTags, inputFastaFile, overwrite) attributes(designObject)
 
 setGeneric("prepareMlgtRun")
-
 
 prepareMlgtRun.listDesign <- function(projectName,runName, samples, markers,fTags,rTags, inputFastaFile,overwrite="prompt")  {
 	designObject <- new("mlgtDesign", projectName=projectName, runName=runName, 
@@ -552,7 +672,21 @@ setClass("genotypeCall",
 	)
 )
 
-
+#' makeVarAlleleMap()
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param allele.variantMap an object of class variantMap, typically derived from an external source
+#' @param variant.variantMap an object of class variantMap, typically derived from mlgt()
+#'
+#' @return something
+#' @author Dave T. Gerrard <david.gerrard@@manchester.ac.uk>
+#'
+#' @export
+#' @docType methods
+#' @rdname makeVarAlleleMap-methods
 makeVarAlleleMap <- function(allele.variantMap, variant.variantMap)  {
 			varAlleleMap <- data.frame()
 			# to use stopifnot, need to ensure no empty maps are passed. Currently this is happening so taking out this check.
@@ -566,6 +700,16 @@ makeVarAlleleMap <- function(allele.variantMap, variant.variantMap)  {
 }
 
 # deprecated and/or defunct
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 makeVarAlleleMap.list <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),varMarkers=names(varDb))  {
 			knownAlleleTable <- data.frame()
 			for(thisMarker in alleleMarkers)  {
@@ -583,7 +727,28 @@ makeVarAlleleMap.list <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),
 }
 
 
-## how do I want to store these results?
+#' callGenotypes 
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param table
+#' @param alleleDb
+#' @param method
+#' @param minTotalReads
+#' @param maxPropUniqueVars
+#' @param minPropToCall
+#' @param minDiffToVarThree
+#' @param minPropDiffHomHetThreshold
+#' @param mapAlleles
+#'
+#' @return something
+#' @author Dave T. Gerrard <david.gerrard@@manchester.ac.uk>
+#'
+#' @export
+#' @docType methods
+#' @aliases callGenotypes.mlgtResult
 callGenotypes <- function(table, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
 					minPropToCall=0.1, minDiffToVarThree=0.4,
 					minPropDiffHomHetThreshold=0.3, mapAlleles=FALSE) {
@@ -612,6 +777,16 @@ callGenotypes <- function(table, alleleDb=NULL, method="custom", minTotalReads=5
 	return(table)
 }
 
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 vectorOrRepeat <- function(paramValue, requiredLength) {
 	# Used by callGenotypes.mgltResult() to equalise lengths of parameter vectors when one has length > 1
 	if(length(paramValue) == requiredLength) {
@@ -704,7 +879,24 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 }
 
 
+# generic method. Need to give defaults if defaults to be set in specific forms.
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
+#' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
+writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
+setGeneric("writeGenotypeCallsToFile")
+
+
 # default for 'file' could be derived from project, run, marker attributes of genotypeCall.
+
 writeGenotypeCallsToFile.genotypeCall <- function(genotypeCall, file=paste("genoCalls",genotypeCall@projectName,genotypeCall@runName,genotypeCall@marker,"tab",sep="."),
 							writeParams=FALSE, appendValue=FALSE)  {
 	if(writeParams)  {
@@ -745,9 +937,7 @@ writeGenotypeCallsToFile.list <- function(callList, file, singleFile=FALSE,write
 
 }
 
-# generic method. Need to give defaults if defaults to be set in specific forms.
-writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
-setGeneric("writeGenotypeCallsToFile")
+
 
 setMethod("writeGenotypeCallsToFile", signature(callList="list", genotypeCall="missing",file="ANY", singleFile="ANY", 
 									writeParams="ANY", appendValue="ANY"), 
@@ -760,7 +950,16 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 
 
 ########################## plotting
-
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 inspectBlastResults <- function(blastTable, subject)  {
 
 	#topHits <- getTopBlastHits(resultFile)
@@ -778,6 +977,17 @@ inspectBlastResults <- function(blastTable, subject)  {
 	}
 }
 
+
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
 printBlastResultGraphs <- function(designObject, markerList=designObject@markers, fileName="blastResultGraphs.pdf") {
 	topHits <- getTopBlastHits(designObject@markerBlastResults)
 	pdf(fileName,height=4)
@@ -800,26 +1010,23 @@ plotGenotypeEvidence.genotypeCall <- function(genotypeCall)  {
 
 	if(sum(genotypeTable$numbSeqs) < 1)  {
 		warning(paste("No seqs to plot for",thisMarker), call.=F)
-		return()
+	} else {
+		statusList <- as.factor(genotypeTable$status)
+		pchList <- statusList
+		levels(pchList) <- (1:nlevels(pchList ))
+		#levels(pchList) <- 20+(1:nlevels(pchList ))
+
+
+		par(mfrow=c(2,3))
+		hist( genotypeTable$numbSeqs, breaks=20, main=thisMarker, xlab="numbSeqs"); abline(v=minTotalReads , lty=2)
+		hist( genotypeTable$diffToVarThree, breaks=20, main=thisMarker, xlab="diffToVarThree", xlim=c(0,1)); abline(v=minDiffToVarThree , lty=2)
+		hist(genotypeTable$propDiffHomHet, breaks=20, main=thisMarker, xlab="propDiffHomHet", xlim=c(0,1)) ; abline(v=minPropDiffHomHetThreshold , lty=2)
+
+		plot(genotypeTable$diffToVarThree,genotypeTable$propDiffHomHet, main=thisMarker, xlab="diffToVarThree", ylab="propDiffHomHet",xlim=c(0,1), ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minPropDiffHomHetThreshold , lty=2); abline(v=minDiffToVarThree , lty=2)
+		legend("topleft", levels(as.factor(genotypeTable$status)), pch=as.numeric(levels(pchList)))
+		plot(genotypeTable$numbSeqs,genotypeTable$diffToVarThree, main=thisMarker, xlab="numbSeqs", ylab="diffToVarThree", ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minDiffToVarThree , lty=2); abline(v=minTotalReads , lty=2)
+		plot(genotypeTable$numbSeqs,genotypeTable$propDiffHomHet, main=thisMarker, xlab="numbSeqs", ylab="propDiffHomHet", ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minPropDiffHomHetThreshold , lty=2); abline(v=minTotalReads , lty=2)
 	}
-	
-	statusList <- as.factor(genotypeTable$status)
-	pchList <- statusList
-	levels(pchList) <- (1:nlevels(pchList ))
-	#levels(pchList) <- 20+(1:nlevels(pchList ))
-
-
-	par(mfrow=c(2,3))
-	hist( genotypeTable$numbSeqs, breaks=20, main=thisMarker, xlab="numbSeqs"); abline(v=minTotalReads , lty=2)
-	hist( genotypeTable$diffToVarThree, breaks=20, main=thisMarker, xlab="diffToVarThree", xlim=c(0,1)); abline(v=minDiffToVarThree , lty=2)
-	hist(genotypeTable$propDiffHomHet, breaks=20, main=thisMarker, xlab="propDiffHomHet", xlim=c(0,1)) ; abline(v=minPropDiffHomHetThreshold , lty=2)
-
-	plot(genotypeTable$diffToVarThree,genotypeTable$propDiffHomHet, main=thisMarker, xlab="diffToVarThree", ylab="propDiffHomHet",xlim=c(0,1), ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minPropDiffHomHetThreshold , lty=2); abline(v=minDiffToVarThree , lty=2)
-	legend("topleft", levels(as.factor(genotypeTable$status)), pch=as.numeric(levels(pchList)))
-	plot(genotypeTable$numbSeqs,genotypeTable$diffToVarThree, main=thisMarker, xlab="numbSeqs", ylab="diffToVarThree", ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minDiffToVarThree , lty=2); abline(v=minTotalReads , lty=2)
-	plot(genotypeTable$numbSeqs,genotypeTable$propDiffHomHet, main=thisMarker, xlab="numbSeqs", ylab="propDiffHomHet", ylim=c(0,1),pch=as.numeric(levels(pchList))[pchList]); abline(h=minPropDiffHomHetThreshold , lty=2); abline(v=minTotalReads , lty=2)
-
-
 }
 
 plotGenotypeEvidence.genotypeCall.file <- function(genotypeCall, file)  {
@@ -849,7 +1056,17 @@ plotGenotypeEvidence.list <- function(callList, file) {
 	
 }
 
-
+#' Title text
+#' 
+#' Summary Text
+#'
+#' details text
+#' 
+#' @param something
+#'
+#' @return something
+#'
+#' @aliases plotGenotypeEvidence.list,plotGenotypeEvidence.genotypeCall.file,plotGenotypeEvidence.genotypeCall
 plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
 setGeneric("plotGenotypeEvidence")
 setMethod("plotGenotypeEvidence", signature(genotypeCall="missing", callList="list", file="character"), definition=plotGenotypeEvidence.list)

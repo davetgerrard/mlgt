@@ -87,8 +87,20 @@ writeGenotypeCallsToFile(test.genotypes, singleFile=F, file="genotypeTable.tab")
 writeGenotypeCallsToFile(test.genotypes, singleFile=T, file="genotypeTable.tab")
 writeGenotypeCallsToFile(genotypeCall=test.genotypes[[1]])
 
+# Make known allele DB.
 # Create a structured list of known alleles (e.g. from IMGT/HLA)
-# see mapToIMGT.R
+
+markerImgtFileTable <- read.delim("C:/Users/dave/HalfStarted/mlgt/marker.imgt.msf.list.tab", header=T)
+imgtFileDir <- "C:/Users/dave/HLA/data/IMGT_manualDownload/"
+
+# create a 'variantMap' object for each marker and store them all in a list.
+knownAlleleDb <- list()
+# takes about 2 minutes with 17 markers. 
+for(thisMarker in names(intersectMarkerList)) {
+	baseFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
+	imgtAlignFile <- paste(imgtFileDir,baseFile , sep="") 
+	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], imgtAlignFile)
+}
 
 # Call genotypes and map alleles to list of known alleles
 #test.genotypes <- callGenotypes.mlgtResult(intersect.cleanRun.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
