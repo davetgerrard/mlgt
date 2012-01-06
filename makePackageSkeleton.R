@@ -17,3 +17,7 @@ Sweave("testSweave.R")
 R CMD texify --pdf testSweave.R.tex
 
 
+Sweave("../README")	# from sub-directory up to main mlgt directory
+R CMD texify --pdf README.tex
+
+

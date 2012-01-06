@@ -60,7 +60,7 @@ setClass("variantMap", representation(reference='ANY', variantSource='character'
 #' 
 #' @param markerName 
 #' @param markerSeq something
-#' @param alialignedAlleleFile a sequence alignment 
+#' @param alignedAlleleFile a sequence alignment 
 #' @param alignFormat the format of alignedAlleleFile. "msf" (the default) or "fasta"
 #' @param sourceName A character string to record the source of the alignment. Defaults to 
 #'  the value of alignedAlleleFile
