@@ -14,9 +14,16 @@ Processing and analysis of high throughput (Roche 454) sequences generated from 
 
 The purpose of mlgt is to genotype multiple loci from multiple samples, where the sequence data is a single output file from a high throughput sequencing machine (e.g. the Roche 454 system).  Of course, the samples, and markers need to have been properly prepared (amplified and tagged) prior to sequencing so that they can be sorted out again. 
 
-mlgt is a pipeline of R code and makes use of several external applications. 
+The data is expected to be full length sequences from mixed PCR amplicons. The amplicons from different samples will have been barcoded with unique end sequences (barcodes, MIDs) and these sequences need to be provided by the user. A set of reference amplicon sequences (markers) are also required, one for each amplicon.
 
-Add term definitions here for amplicon, marker, sample, MID, variant, allele, etc.
+\textbf{Definitions}
+\begin{description}
+\item[allele] Top variants called by mlgt OR alleles from an external source.
+\item[amplicon] The sequence segment amplified in PCR. 
+\item[barode/MID] Short sequence tags ligated to ends of amplicons. 
+\item[marker] A reference sequence against which all variants are aligned.
+\item[sample] The biological samples. 
+\end{description}
 
 A note on markers. You should use a sequence that is contained within the expected amplicon. I recommend NOT including the primer sequence as this is constrained by the primers used and may not reflect the true sequence of the samples. If you wish to compare your variants with alleles from an external source (e.g. the HLA database) then your marker sequence should be precisely bounded by the sequence that is in BOTH your amplicon and the allele sequences (e.g. the exon only part is good). 
 
@@ -63,7 +70,7 @@ blastAllPath <- "C:/Users/Public/Apps/Blast/bin/blastall.exe"
 musclePath <- "C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe"
 @
 
-\subsection{Describing your data}
+\subsection{Prepare the analysis}
 
 Start each analysis in a clean directory, perhaps named for the sequencing run and nested within a folder of all runs for the project.
 
@@ -73,45 +80,155 @@ setwd(analysisDir)
 @
 
 
-
-
 <<eval=FALSE>>=
 
 @
 
-You will need to create some variables to describe your sequencing run. 
-Markers and markersequences
-Samples
-Sample MIDs
-fasta sequence file.
+You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. 
 
-\subsection{Prepare the analysis}
 
-prepareMlgtRun()
-<<eval=FALSE>>=
-inputDataFile <- "C:/Users/me/genoProject1/run1/data/4.TCA.454Reads.fna"
 
+
+<<keep.source=TRUE>>=
+# The MIDs used to mark samples
+fTagList <- read.fasta(system.file("data/namedBarcodes.fasta", package="mlgt"), 
+			as.string=T) 
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# The markers
+myMarkerList <- read.fasta(system.file("data/HLA_namedMarkers.fasta", package="mlgt"),
+			as.string=T)	
+		
+# The file of reads
+inputDataFile <- system.file("data/4.TCA.454Reads.fna", package="mlgt")
+@
+
+Now you can create an object of class \emph{mlgtResult} to hold all this information. Give the names of the variables you have just created for the marker list, the sample list and the MIDs. Also give a project name and a name for this run; this will help to identify the source of this object later on. 
+
+<<keep.source=TRUE>>=
 # Creates object to store run settings
-intersect.cleanRun.Design <- prepareMlgtRun(projectName="testProject", 
-				runName="cleanRun", samples=sampleList, 
-				markers=intersectMarkerList, fTags=fTagList, 
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="myRun", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
 				rTags=rTagList, inputFastaFile=inputDataFile, 
 				overwrite="yes")
 @
 
+As this object is created, multiple BLAST databases are also created in the working directory and all the input sequences are BLASTed against the databases. These BLAST results are used to assign sequences to markers and samples. 
+
 It might be instructive to see how many sequences in your dataset are being assigned to each marker, especially if the marker list includes sequences which were meant NOT to be targetted by your primers.
 
-inspectBlastResults()
+<<>>=
+# inspect BLAST results for a specific marker
+thisMarker <- "DPA1_E2"
+topHits <- getTopBlastHits(my.mlgt.Design@markerBlastResults)
+#inspectBlastResults(topHits, thisMarker)
+@
+
+\begin{center}
+<<fig=TRUE, echo=TRUE>>=
+inspectBlastResults(topHits, thisMarker)
+@
+\end{center}
+
+Alternatively, print these plots for a set of markers to file. The function \emph{printBlastResultGraphs} knows how to find the BLAST results from an object of class \emph{mlgtDesign}. 
+
+<<eval=FALSE>>=
+# automatic output to pdf of blast result graphs for a list of markers.
+printBlastResultGraphs(my.mlgt.Design)
+@
+
+
 
 \subsection{Run mlgt}
 
-mlgt()
+You can now proceed to extacting the sequences of the most common variants assigned to each marker/sample pair. 
+
+Run \emph{mlgt} and save the results to file.
+
+<<>>=
+my.mlgt.Result <- mlgt(my.mlgt.Design)
+save(my.mlgt.Result, file="thisRun.mlgtResult.Rdata")
+@
+
+Have a look at the summary table for the run, this is located in the slot `runSummaryTable'
+
+<<>>=
+my.mlgt.Result@runSummaryTable
+@
+
+The results for each marker are stored in a list and can be accessed indidually using the marker name.
+
+<<>>=
+thisMarker <- "DPA1_E2"
+my.mlgt.Result@markerSampleList[[thisMarker]]
+@
 
 \subsection{Call genotypes}
 
-callGenotypes()
+The new \emph{mlgtResult} object contains a table for each marker giving counts of unique variants for each sample including the counts of the most common 3 variants. The 'genotyping' has not yet been done. Genotyping is done by a separate function \emph{callGenotypes} so that users can run different genotyping methods on the same \emph{mlgtResult} object.
+
+A simple example of calling genotypes is
+
+<<eval=FALSE>>=
+
+my.genotypes <- callGenotypes(my.mlgt.Result)
+
+@
+
+the result is the same table of variant counts with new columns to represent the genotype calls. 
+
+Once you have some genoytpes, you may want to export them to files. You can do this for individual markers or for all markers in the genotypeCall object.
+
+<<eval=FALSE>>=
+writeGenotypeCallsToFile(my.genotypes)
+@
+
+I hope to allow users to define their own methods for calling genotypes. 
+
+As with the BLAST results, it is also instructive to look at the distribution of statistics used in genotype calls. There is another function to plot the statistics. 
+
+\begin{center}
+<<fig=TRUE, echo=TRUE>>=
+#plotGenotypeEvidence(my.genotypes[["DPA1_E2"]])	# why is this not working.
+plotGenotypeEvidence.genotypeCall(test.genotypes[["DPA1_E2"]])
+@
+\end{center}
+
+\subsection{Map to known allleles}
+
+The previous genotype calling was done without reference to previously known alleles. To map the newly tabulated variants to known alleles, a local variantMap of known alleles must be loaded or created. \emph{mlgt} contains a function to build a list of alleles bounded by the marker sequence. \textbf{N.B.} the names of otherwise distinct alleles that are identical within the region overlapping the marker sequence are condensed to one sequence and names are concatenated. 
+
+Creating the allele map is a little more involved than other aspects but not too difficult with a little set up. You need to provide an alignment (msf or fasta format) of known alleles for each marker. This could be provided in table format in a file. The allele map should be a list with one \emph{variantMap} element per marker. Each variantMap is created by running \emph{createKnownAlleleList} to align each marker against the respective allele alignment file.
 
 
+<<eval=FALSE>>=
+
+markerImgtFileTable <- read.delim(system.file("data/Hmarker.imgt.msf.list.tab", package="mlgt"),
+				header=T)
+
+# create a 'variantMap' object for each marker and store them all in a list.
+knownAlleleDb <- list()
+# takes about 2 minutes with 17 markers. 
+for(thisMarker in names(myMarkerList)) {
+	alleleAlignFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
+	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], 					alleleAlignFile)
+}
+
+@
+
+Once you have the allele map, it's a good idea to save it as an 'RData' file for future use. Give it a name that describes the source of the known alleles and the marker used. 
+
+Now you can map variants to the new allele map. Run \emph{callGenotypes} again with the option \code{mapAlleles=TRUE} and giving the name of the allele map. 
+
+<<eval=FALSE>>=
+my.genotypes <- callGenotypes(my.mlgt.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
+
+@
+
+The result is the same table of genotypes as before but with additional columns giving the names of alleles mapped to the variants.
 
 \end{document}
 

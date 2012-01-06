@@ -911,7 +911,6 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 	return(callResults)
 	#new("genotypeCall", 
 
-
 }
 
 
@@ -1011,7 +1010,7 @@ inspectBlastResults <- function(blastTable, subject)  {
 	if(hitCount > 0) { 
 		#subject <- "DPA1_E2"
 		breakValue <- max(10, 10^(floor(log10(hitCount))))	# favour a large number of breaks. At least 10.
-		par(mfrow=c(1,3))
+		par(mfrow=c(3,1))
 		hist(blastTable$ali.length[blastTable$subject == subject], breaks=breakValue, xlab="Alignment Length", main=subject)
 		hist(blastTable$bit.score[blastTable$subject == subject], breaks=breakValue, xlab="Bit Score", main=subject)
 		hist(blastTable$percent.id[blastTable$subject == subject], breaks=breakValue, xlab="% identity", main=subject)

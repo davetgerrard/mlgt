@@ -36,22 +36,31 @@ source("C:/Users/dave/HalfStarted/mlgt/mlgt.R")
 analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/cleanRun"
 setwd( analysisDir )
 
-sampleFile <- "C:/Users/dave/HalfStarted/mlgt/samples_ALL.tab"
-sampleTable <- read.delim(sampleFile, sep=";")
+#sampleFile <- "C:/Users/dave/HalfStarted/mlgt/samples_ALL.tab"
+#sampleTable <- read.delim(sampleFile, sep=";")
 
-intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", as.string=T)
+#intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", as.string=T)
 
 # samples
-sampleList <- as.character(unique(sampleTable$sample_name))
+#sampleList <- as.character(unique(sampleTable$sample_name))
 
 ## TODO: SIMPLIFY
 # MIDs/tags
-tempTable <- unique(subset(sampleTable, select=c(tag_f, sample_name)))
-fTagList <- as.list(as.character(tempTable$tag_f))
-names(fTagList) <- tempTable$sample_name
-tempTable <- unique(subset(sampleTable, select=c(tag_r, sample_name)))
-rTagList <- as.list(as.character(tempTable$tag_r))
-names(rTagList) <- tempTable$sample_name
+#tempTable <- unique(subset(sampleTable, select=c(tag_f, sample_name)))
+#fTagList <- as.list(as.character(tempTable$tag_f))
+#names(fTagList) <- tempTable$sample_name
+#tempTable <- unique(subset(sampleTable, select=c(tag_r, sample_name)))
+#rTagList <- as.list(as.character(tempTable$tag_r))
+#names(rTagList) <- tempTable$sample_name
+
+
+fTagList <- read.fasta("C:/Users/dave/HLA/data/fTags.fasta", as.string=T)
+rTagList <- fTagList
+sampleList <- names(fTagList)
+
+intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", 
+				as.string=T)
+
 
 
 ########## START
