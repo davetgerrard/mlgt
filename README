@@ -6,8 +6,15 @@
 \begin{document}
 \maketitle
 
+\begin{abstract}
+Processing and analysis of high throughput (Roche 454) sequences generated from multiple loci and multiple biological samples. Sequences are assigned to their locus and sample of origin, aligned and trimmed. Where possible, genotypes are called and variants mapped to known alleles.
+\end{abstract}
+
 \section{Introduction}
 
+The purpose of mlgt is to genotype multiple loci from multiple samples, where the sequence data is a single output file from a high throughput sequencing machine (e.g. the Roche 454 system).  Of course, the samples, and markers need to have been properly prepared (amplified and tagged) prior to sequencing so that they can be sorted out again. 
+
+mlgt is a pipeline of R code and makes use of several external applications. 
 
 Add term definitions here for amplicon, marker, sample, MID, variant, allele, etc.
 
@@ -48,7 +55,29 @@ Once installation is complete, you can begin to use mlgt. Load the library.
 library(mlgt)
 @
 
+You will also need to specify the locations of the auxillary programs.
+<<>>=
+formatdbPath <- "C:/Users/Public/Apps/Blast/bin/formatdb.exe"
+fastacmdPath <- "C:/Users/Public/Apps/Blast/bin/fastacmd.exe"
+blastAllPath <- "C:/Users/Public/Apps/Blast/bin/blastall.exe"
+musclePath <- "C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe"
+@
+
 \subsection{Describing your data}
+
+Start each analysis in a clean directory, perhaps named for the sequencing run and nested within a folder of all runs for the project.
+
+<<eval=FALSE>>=
+analysisDir <-  "C:/Users/me/genoProject1/run1/analysis/"
+setwd(analysisDir)
+@
+
+
+
+
+<<eval=FALSE>>=
+
+@
 
 You will need to create some variables to describe your sequencing run. 
 Markers and markersequences
@@ -59,6 +88,18 @@ fasta sequence file.
 \subsection{Prepare the analysis}
 
 prepareMlgtRun()
+<<eval=FALSE>>=
+inputDataFile <- "C:/Users/me/genoProject1/run1/data/4.TCA.454Reads.fna"
+
+# Creates object to store run settings
+intersect.cleanRun.Design <- prepareMlgtRun(projectName="testProject", 
+				runName="cleanRun", samples=sampleList, 
+				markers=intersectMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+@
+
+It might be instructive to see how many sequences in your dataset are being assigned to each marker, especially if the marker list includes sequences which were meant NOT to be targetted by your primers.
 
 inspectBlastResults()
 
