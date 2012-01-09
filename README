@@ -37,7 +37,7 @@ To assign sequences and retrieve specific sequences, mlgt makes use of the NCBI 
 
 To align sequence variants, mlgt uses \emph{MUSCLE}, which is available here: \url{http://www.drive5.com/muscle/downloads.htm}
 
-Download the correct versions and follow the installation instructions (if any). Make a note of the installation directories or, even better, specify where you want the programs to be installed.
+Download the correct versions for your system and follow the installation instructions (if any). Make a note of the installation directories or, even better, specify where you want the programs to be installed.
 
 On my machine the formatdb program is in ``C:/Users/Public/Apps/Blast/bin/formatdb.exe'' and MUSCLE is in ``C:/Users/Public/Apps/Muscle/muscle3.8.31\_i86win32.exe''
 
@@ -49,7 +49,7 @@ install.packages("seqinr")
 
 \paragraph{}
 
-To install mlgt from within R you can do this from the packages menu (Install packages from local zip files) or using this command:- 
+To install mlgt from within R you can do this from the packages menu (Install packages from local zip files) or using this command giving the full path to the package zip archive.:- 
 <<eval=FALSE>>=
 install.packages("mlgt_0.1.zip", repos=NULL)
 @
@@ -84,28 +84,29 @@ setwd(analysisDir)
 
 @
 
-You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. 
-
-
-
+You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. Example data are in the /data sub-directory of the mlgt package installation directory and can be found using \code{system.file()}.
 
 <<keep.source=TRUE>>=
-# The MIDs used to mark samples
+system.file("data/namedBarcodes.fasta", package="mlgt")
+
+# Load MIDs used to mark samples
 fTagList <- read.fasta(system.file("data/namedBarcodes.fasta", package="mlgt"), 
 			as.string=T) 
 # here we're using the same tags at both ends of the amplicons.
 rTagList <- fTagList
 #The names of the samples
 sampleList <- names(fTagList)
-# The markers
+# Load the marker sequences. 
 myMarkerList <- read.fasta(system.file("data/HLA_namedMarkers.fasta", package="mlgt"),
 			as.string=T)	
 		
-# The file of reads
-inputDataFile <- system.file("data/4.TCA.454Reads.fna", package="mlgt")
+# The fasta file of sequence reads
+inputDataFile <- system.file("data/sampleSequences.fasta", package="mlgt")
 @
 
-Now you can create an object of class \emph{mlgtResult} to hold all this information. Give the names of the variables you have just created for the marker list, the sample list and the MIDs. Also give a project name and a name for this run; this will help to identify the source of this object later on. 
+Inspect what is stored in each variable by typing its name.
+
+Now you can create an object of class \emph{mlgtDesign} to hold all this information. Give the names of the variables you have just created for the marker list, the sample list and the MIDs. Also give a project name and a name for this run; this will help to identify the source of this object later on. 
 
 <<keep.source=TRUE>>=
 # Creates object to store run settings
@@ -172,13 +173,14 @@ The new \emph{mlgtResult} object contains a table for each marker giving counts 
 
 A simple example of calling genotypes is
 
-<<eval=FALSE>>=
+<<>>=
 
-my.genotypes <- callGenotypes(my.mlgt.Result)
+#my.genotypes <- callGenotypes(my.mlgt.Result)	# this needs fixing
+my.genotypes <- callGenotypes.mlgtResult(my.mlgt.Result)
 
 @
 
-the result is the same table of variant counts with new columns to represent the genotype calls. 
+the result is the same table of variant counts with new columns to represent the genotype calls. \texbf{N.B.} currently, only one method is implemented - use \code{?callGenotypes} to see details. I hope to allow users to define their own methods for calling genotypes (NOT YET IMPLEMENTED). 
 
 Once you have some genoytpes, you may want to export them to files. You can do this for individual markers or for all markers in the genotypeCall object.
 
@@ -186,16 +188,18 @@ Once you have some genoytpes, you may want to export them to files. You can do t
 writeGenotypeCallsToFile(my.genotypes)
 @
 
-I hope to allow users to define their own methods for calling genotypes. 
+
 
 As with the BLAST results, it is also instructive to look at the distribution of statistics used in genotype calls. There is another function to plot the statistics. 
 
 \begin{center}
 <<fig=TRUE, echo=TRUE>>=
 #plotGenotypeEvidence(my.genotypes[["DPA1_E2"]])	# why is this not working.
-plotGenotypeEvidence.genotypeCall(test.genotypes[["DPA1_E2"]])
+plotGenotypeEvidence.genotypeCall(my.genotypes[["DPA1_E2"]])
 @
 \end{center}
+
+Again, these plots can be output to file, use \code{?plotGenotypeEvidence} to find out how.
 
 \subsection{Map to known allleles}
 
@@ -214,17 +218,19 @@ knownAlleleDb <- list()
 # takes about 2 minutes with 17 markers. 
 for(thisMarker in names(myMarkerList)) {
 	alleleAlignFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
-	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,intersectMarkerList[[thisMarker]][1], 					alleleAlignFile)
+	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,
+		intersectMarkerList[[thisMarker]][1], alleleAlignFile)
 }
 
 @
 
-Once you have the allele map, it's a good idea to save it as an 'RData' file for future use. Give it a name that describes the source of the known alleles and the marker used. 
+Once you have the allele map, it's a good idea to save it as an 'RData' file for future use (\code{?save}, \code{?load}). Give it a name that describes the source of the known alleles and the marker used. 
 
 Now you can map variants to the new allele map. Run \emph{callGenotypes} again with the option \code{mapAlleles=TRUE} and giving the name of the allele map. 
 
-<<eval=FALSE>>=
-my.genotypes <- callGenotypes(my.mlgt.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
+<<eval=FALSE,keep.source=TRUE>>=
+my.genotypes <- callGenotypes(my.mlgt.Result,  mapAlleles=TRUE,
+		alleleDb=knownAlleleDb)
 
 @
 

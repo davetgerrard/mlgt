@@ -10,6 +10,8 @@ roxygenize("mlgt", unlink.target=T)
 
 
 
+
+
 ### to use sweave on documentation
 # in R
 Sweave("testSweave.R")
@@ -17,6 +19,7 @@ Sweave("testSweave.R")
 R CMD texify --pdf testSweave.R.tex
 
 
+setwd("C:/Users/dave/HalfStarted/mlgt/testREADME")
 Sweave("../README")	# from sub-directory up to main mlgt directory
 R CMD texify --pdf README.tex
 
