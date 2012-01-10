@@ -203,17 +203,7 @@ setMethod("show", "mlgtDesign", definition= function(object="mlgtDesign"){
 	}
 )
 
-setMethod("show", "mlgtResult", definition= function(object="mlgtResult"){
-	cat("Results for mlgt run:\n")
-	cat(paste("Project:",object@projectName,"\n"))
-	cat(paste("Run:",object@runName,"\n"))
-	cat(paste("Samples:",length(object@samples),"\n"))
-	cat(paste("fTags:",length(object@fTags),"\n"))
-	cat(paste("rTags:",length(object@rTags),"\n"))
-	cat(paste("Markers:",length(object@markers),"\n"))
-	print(object@runSummaryTable)
-	}
-)
+
 
 
 
@@ -244,6 +234,20 @@ setClass("mlgtResult",
 	),
 	contains="mlgtDesign"
 )
+
+
+setMethod("show", "mlgtResult", definition= function(object="mlgtResult"){
+	cat("Results for mlgt run:\n")
+	cat(paste("Project:",object@projectName,"\n"))
+	cat(paste("Run:",object@runName,"\n"))
+	cat(paste("Samples:",length(object@samples),"\n"))
+	cat(paste("fTags:",length(object@fTags),"\n"))
+	cat(paste("rTags:",length(object@rTags),"\n"))
+	cat(paste("Markers:",length(object@markers),"\n"))
+	print(object@runSummaryTable)
+	}
+)
+
 
 #' Return top blast hits
 #'
@@ -1208,6 +1212,36 @@ setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callLis
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="missing"), definition=plotGenotypeEvidence.genotypeCall)
 
 
+#' Dump variants as fasta
+#'
+#' Output unique variants to one or more fasta files.
+#'
+#' This is a stop-gap function while I decide how best to handle output of full sequences. 
+#' 
+#' @param resultObject An object of class \code{\link{mlgtResult}} containing the sequence variants.
+#' @param markers For which markers do you want to output sequences.
+#' @param file An output file name. If not supplied, one is created.
+#' @param singleFile Whether to output results for all markers to a single file or to one file per marker.
+#'
+#' @return Writes fasta files in the current directory. 
+#' @export
+dumpVariantMap.mlgtResult <- function(resultObject, markers=names(resultObject@markers),
+			 file=paste(resultObject@projectName,resultObject@runName,"seqDump",sep="."),
+			singleFile=TRUE) {
+
+	file <- sub("\\.fasta","",file)
+	writeOption <- ifelse(singleFile,"a","w")	# used by write.fasta. "a" = append
+	baseFileName <- file	
+	for(thisMarker in markers)  {
+		useFile <- ifelse(singleFile,paste(baseFileName,"fasta",sep="."),paste(baseFileName,thisMarker,"fasta",sep="."))	
+		theSeqs <- names(resultObject@alleleDb[[thisMarker]]@variantMap)
+		theNames <-  as.character(resultObject@alleleDb[[thisMarker]]@variantMap)
+		write.fasta(lapply(theSeqs,s2c), theNames, file.out=useFile , open=writeOption )
+	}
+}
+
+
+#dumpVariantMap.variantMap
 
 
 
