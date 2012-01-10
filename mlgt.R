@@ -27,6 +27,8 @@
 #' 
 #' @references BLAST - NCBI
 #' @references MUSCLE - Robert C. Edgar (2004) MUSCLE: multiple sequence alignment with high accuracy and high throughput. Nucleic Acids Research 32(5), 1792-97.
+#' @references IMGT/HLA database - Robinson J, Mistry K, McWilliam H, Lopez R, Parham P, Marsh SGE (2011) The IMGT/HLA Database. Nucleic Acids Research 39 Suppl 1:D1171-6
+
 #' @import seqinr
 #' @docType package
 #' @name mlgt-package
@@ -164,20 +166,8 @@ setClass("mlgtDesign",
 )
 
 
-setMethod("print", "mlgtDesign", definition= function(x, ...){
-	cat("Design for mlgt run:\n")
-	cat(paste("Project:",x@projectName,"\n"))
-	cat(paste("Run:",x@runName,"\n"))
-	cat(paste("Samples:",length(x@samples),"\n"))
-	cat(paste("fTags:",length(x@fTags),"\n"))
-	cat(paste("rTags:",length(x@rTags),"\n"))
-	cat(paste("Markers:",length(x@markers),"\n"))
-	#cat(paste(x[1:5]), "...\n")
-	}
-)
 
-
-#setMethod("show", "mlgtDesign", definition= function(x, ...){
+#setMethod("print", "mlgtDesign", definition= function(x, ...){
 #	cat("Design for mlgt run:\n")
 #	cat(paste("Project:",x@projectName,"\n"))
 #	cat(paste("Run:",x@runName,"\n"))
@@ -188,6 +178,43 @@ setMethod("print", "mlgtDesign", definition= function(x, ...){
 #	#cat(paste(x[1:5]), "...\n")
 #	}
 #)
+
+
+#setMethod("print", "mlgtResult", definition= function(x, ...){
+#	cat("Design for mlgt run:\n")
+#	cat(paste("Project:",x@projectName,"\n"))
+#	cat(paste("Run:",x@runName,"\n"))
+#	cat(paste("Samples:",length(x@samples),"\n"))
+#	cat(paste("fTags:",length(x@fTags),"\n"))
+#	cat(paste("rTags:",length(x@rTags),"\n"))
+#	cat(paste("Markers:",length(x@markers),"\n"))
+#	#cat(paste(x[1:5]), "...\n")
+#	}
+#)
+
+setMethod("show", "mlgtDesign", definition= function(object="mlgtDesign"){
+	cat("Design for mlgt run:\n")
+	cat(paste("Project:",object@projectName,"\n"))
+	cat(paste("Run:",object@runName,"\n"))
+	cat(paste("Samples:",length(object@samples),"\n"))
+	cat(paste("fTags:",length(object@fTags),"\n"))
+	cat(paste("rTags:",length(object@rTags),"\n"))
+	cat(paste("Markers:",length(object@markers),"\n"))
+	}
+)
+
+setMethod("show", "mlgtResult", definition= function(object="mlgtResult"){
+	cat("Results for mlgt run:\n")
+	cat(paste("Project:",object@projectName,"\n"))
+	cat(paste("Run:",object@runName,"\n"))
+	cat(paste("Samples:",length(object@samples),"\n"))
+	cat(paste("fTags:",length(object@fTags),"\n"))
+	cat(paste("rTags:",length(object@rTags),"\n"))
+	cat(paste("Markers:",length(object@markers),"\n"))
+	print(object@runSummaryTable)
+	}
+)
+
 
 
 #' An S4 class to hold results from \code{\link{mlgt}}
@@ -524,11 +551,16 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	}  # end of sample loop
 
 	markerSampleList[[thisMarker]] <- summaryTable
-	## TODO: min(nchar(names(variantList))) throws warning when no variants in list. (Inf/-Inf)
+	## DONE: min(nchar(names(variantList))) throws warning when no variants in list. (Inf/-Inf)
+	minVarLength <- ifelse(length(markerSequenceCount) < 1, NA, min(nchar(names(markerSequenceCount))) )
+	maxVarLength <- ifelse(length(markerSequenceCount) < 1, NA, max(nchar(names(markerSequenceCount))) )
+	minAleLength <- ifelse(length(variantList) < 1, NA, min(nchar(names(variantList))) )
+	maxAleLength <- ifelse(length(variantList) < 1, NA, max(nchar(names(variantList))) )
+
 	runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
-					minVariantLength=min(nchar(names(markerSequenceCount))), 
-					maxVariantLength=max(nchar(names(markerSequenceCount))),
-					minAlleleLength=min(nchar(names(variantList))), maxAlleleLength=max(nchar(names(variantList))))
+					minVariantLength=minVarLength, 
+					maxVariantLength=maxVarLength,
+					minAlleleLength=minAleLength, maxAlleleLength=maxAleLength )
 	runSummaryTable <- rbind(runSummaryTable, runSummaryRow)
 	if(length(variantList) > 0)  {
 		# This line replaced. Not entirely tested the repurcussions. e.g. makeVarAlleleMap()?
@@ -926,16 +958,19 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 #' @export
 #' @docType methods
 #' @aliases callGenotypes.mlgtResult, callGenotypes.table
-callGenotypes <- function(resultObject, table, alleleDb, method, minTotalReads, maxPropUniqueVars, 
-					minPropToCall, minDiffToVarThree,
-					minPropDiffHomHetThreshold, markerList,
-					sampleList, mapAlleles=FALSE	) attributes(method)
-setGeneric("callGenotypes")
+setGeneric("callGenotypes",  function(resultObject, table, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
+					minPropToCall=0.1, minDiffToVarThree=0.4,
+					minPropDiffHomHetThreshold=0.3, markerList=names(resultObject@markers),
+					sampleList=resultObject@samples, mapAlleles=FALSE)
+	standardGeneric("callGenotypes")
+	) 
+
 
 setMethod("callGenotypes", signature(resultObject="missing", table="data.frame", alleleDb="ANY", method="ANY", minTotalReads="ANY", maxPropUniqueVars="ANY", 
 					minPropToCall="ANY", minDiffToVarThree="ANY",minPropDiffHomHetThreshold="ANY", markerList="ANY",
 					sampleList="ANY", mapAlleles="ANY"), 
 			definition=callGenotypes.table )
+
 
 setMethod("callGenotypes", signature(resultObject="mlgtResult", table="missing", alleleDb="ANY", method="ANY", minTotalReads="ANY", maxPropUniqueVars="ANY", 
 					minPropToCall="ANY", minDiffToVarThree="ANY",minPropDiffHomHetThreshold="ANY", markerList="ANY",
@@ -944,27 +979,7 @@ setMethod("callGenotypes", signature(resultObject="mlgtResult", table="missing",
 
 
 
-# generic method. Need to give defaults if defaults to be set in specific forms.
-#' Write genotype calls to file
-#' 
-#' A genotype call table or a list of tables can be written to tab-delimited file(s). 
-#'
-#' This function is quite flexible and can output a single table of concatenated results or a series of individual files. 
-#' Call parameters can be included above each table but be careful doing this when \code{singleFile=TRUE}
-#' 
-#' @param callList A \code{list} of genotypes calls.
-#' @param genotypeCall Alternatively, supply a single table of genotype calls
-#' @param file The file to write to. If none specified, function will attempt to make one. Ignored if \option{singleFile = TRUE}.
-#' @param singleFile	FALSE/TRUE whether to concatenate results from a list of genotypeCalls
-#' @param writeParams List call parameter values at top of file? Beware using this option when \option{singleFile = TRUE}
-#' @param appendValue Used internally to concatenate results.
-#'
-#' @return Writes tables in the current working directory. 
-#'
-#' @export
-#' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
-writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
-setGeneric("writeGenotypeCallsToFile")
+
 
 
 # default for 'file' could be derived from project, run, marker attributes of genotypeCall.
@@ -1010,6 +1025,27 @@ writeGenotypeCallsToFile.list <- function(callList, file, singleFile=FALSE,write
 }
 
 
+# generic method. Need to give defaults if defaults to be set in specific forms.
+#' Write genotype calls to file
+#' 
+#' A genotype call table or a list of tables can be written to tab-delimited file(s). 
+#'
+#' This function is quite flexible and can output a single table of concatenated results or a series of individual files. 
+#' Call parameters can be included above each table but be careful doing this when \code{singleFile=TRUE}
+#' 
+#' @param callList A \code{list} of genotypes calls.
+#' @param genotypeCall Alternatively, supply a single table of genotype calls
+#' @param file The file to write to. If none specified, function will attempt to make one. Ignored if \option{singleFile = TRUE}.
+#' @param singleFile	FALSE/TRUE whether to concatenate results from a list of genotypeCalls
+#' @param writeParams List call parameter values at top of file? Beware using this option when \option{singleFile = TRUE}
+#' @param appendValue Used internally to concatenate results.
+#'
+#' @return Writes tables in the current working directory. 
+#'
+#' @export
+#' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
+#writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
+setGeneric("writeGenotypeCallsToFile", function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE)	standardGeneric("writeGenotypeCallsToFile")) 
 
 setMethod("writeGenotypeCallsToFile", signature(callList="list", genotypeCall="missing",file="ANY", singleFile="ANY", 
 									writeParams="ANY", appendValue="ANY"), 
@@ -1048,7 +1084,7 @@ inspectBlastResults <- function(blastTable, subject)  {
 	if(hitCount > 0) { 
 		#subject <- "DPA1_E2"
 		breakValue <- max(10, 10^(floor(log10(hitCount))))	# favour a large number of breaks. At least 10.
-		par(mfrow=c(3,1))
+		par(mfrow=c(1,3))
 		hist(blastTable$ali.length[blastTable$subject == subject], breaks=breakValue, xlab="Alignment Length", main=subject)
 		hist(blastTable$bit.score[blastTable$subject == subject], breaks=breakValue, xlab="Bit Score", main=subject)
 		hist(blastTable$percent.id[blastTable$subject == subject], breaks=breakValue, xlab="% identity", main=subject)
@@ -1165,8 +1201,8 @@ plotGenotypeEvidence.list <- function(callList, file) {
 #'
 #' @export
 #' @aliases plotGenotypeEvidence.list,plotGenotypeEvidence.genotypeCall.file,plotGenotypeEvidence.genotypeCall
-plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
-setGeneric("plotGenotypeEvidence")
+#plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
+setGeneric("plotGenotypeEvidence", function(callList, genotypeCall, file) standardGeneric("plotGenotypeEvidence"))
 setMethod("plotGenotypeEvidence", signature(genotypeCall="missing", callList="list", file="character"), definition=plotGenotypeEvidence.list)
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="character"), definition=plotGenotypeEvidence.genotypeCall.file)
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="missing"), definition=plotGenotypeEvidence.genotypeCall)

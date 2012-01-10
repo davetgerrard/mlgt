@@ -90,6 +90,10 @@ test.genotypes <- callGenotypes.mlgtResult(intersect.cleanRun.Result,  mapAllele
 # Call genotypes with marker specific parameter values for minimum number of reads (minTotalReads)
 test.genotypes <- callGenotypes.mlgtResult(intersect.cleanRun.Result,  mapAlleles=FALSE, minTotalReads=seq(20,200, 10))
 
+# Call genotypes on a single table (currently returns only a table, which is desirable as used internally by callGenotypes.mlgtResult
+test.genotypes <- callGenotypes(table=intersect.cleanRun.Result@markerSampleList[["DPA1_E2"]])
+
+
 # Write genotype call graphics to file
 writeGenotypeCallsToFile(test.genotypes)								
 writeGenotypeCallsToFile(test.genotypes, singleFile=F, file="genotypeTable.tab")
