@@ -3,13 +3,15 @@ library(roxygen2)
 #setwd("C:/Users/dave/HalfStarted/mlgt")
 setwd("C:/Users/dave/HalfStarted/mlgt/testRoxygen")
 
-package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
+#package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
 
 roxygenize("mlgt", unlink.target=T)
 
 
 
+#R CMD INSTALL --build mlgt
 
+# R CMD check mlgt
 
 
 ### to use sweave on documentation

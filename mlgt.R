@@ -218,9 +218,13 @@ setClass("mlgtResult",
 	contains="mlgtDesign"
 )
 
-
-
-
+#' Return top blast hits
+#'
+#' Auxillary function
+#'
+#' @param The name of a file of tabulated blast results.
+#' @return A reduced blast table with one hit per query
+#' @export
 getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each query in the table. May now be partially redundant if selecting for number of blast hits returned..
 	blastResults <- read.delim(blastTableFile, header=F)
 	## Fields: 
@@ -590,6 +594,7 @@ setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")
 #' @return An object of class \code{\link{mlgtDesign}} is returned. Also, several BLAST dbs and sets of BLAST results are created in the working directory.
 #'	These are essential for \code{\link{mlgt}} to run.
 #'
+#' @export
 #' @aliases prepareMlgtRun.listDesign,prepareMlgtRun.mlgtDesign 
 #' @seealso \code{\link{printBlastResultGraphs}} and \code{\link{inspectBlastResults}} can only be run AFTER \code{prepareMlgtRun}.
 prepareMlgtRun <- function(designObject,projectName,runName, samples, markers,fTags,rTags, inputFastaFile, overwrite) attributes(designObject)
@@ -956,6 +961,7 @@ setMethod("callGenotypes", signature(resultObject="mlgtResult", table="missing",
 #'
 #' @return Writes tables in the current working directory. 
 #'
+#' @export
 #' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
 writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
 setGeneric("writeGenotypeCallsToFile")
@@ -1032,6 +1038,7 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 #' /item{Bit score}
 #' /item{% identity}
 #' }
+#' @export
 #' @seealso \code{\link{printBlastResultGraphs}}
 inspectBlastResults <- function(blastTable, subject)  {
 
@@ -1062,6 +1069,7 @@ inspectBlastResults <- function(blastTable, subject)  {
 #' @param fileName Defaults to "blastResultGraphs.pdf"
 #'
 #' @return Plots BLAST results to a pdf file.
+#' @export
 #' @seealso \code{\link{inspectBlastResults}}
 printBlastResultGraphs <- function(designObject, markerList=designObject@markers, fileName="blastResultGraphs.pdf") {
 	topHits <- getTopBlastHits(designObject@markerBlastResults)
@@ -1155,6 +1163,7 @@ plotGenotypeEvidence.list <- function(callList, file) {
 #' 	\item {propDiffHomHet against number of sequences}
 #' }
 #'
+#' @export
 #' @aliases plotGenotypeEvidence.list,plotGenotypeEvidence.genotypeCall.file,plotGenotypeEvidence.genotypeCall
 plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
 setGeneric("plotGenotypeEvidence")
