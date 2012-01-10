@@ -176,7 +176,7 @@ A simple example of calling genotypes is
 <<>>=
 
 #my.genotypes <- callGenotypes(my.mlgt.Result)	# this needs fixing
-my.genotypes <- callGenotypes.mlgtResult(my.mlgt.Result)
+my.genotypes <- callGenotypes(my.mlgt.Result)
 
 @
 
@@ -194,8 +194,8 @@ As with the BLAST results, it is also instructive to look at the distribution of
 
 \begin{center}
 <<fig=TRUE, echo=TRUE>>=
-#plotGenotypeEvidence(my.genotypes[["DPA1_E2"]])	# why is this not working.
-plotGenotypeEvidence.genotypeCall(my.genotypes[["DPA1_E2"]])
+plotGenotypeEvidence(my.genotypes[["DPA1_E2"]])	# why is this not working.
+#plotGenotypeEvidence.genotypeCall(my.genotypes[["DPA1_E2"]])
 @
 \end{center}
 
@@ -210,16 +210,16 @@ Creating the allele map is a little more involved than other aspects but not too
 
 <<eval=FALSE>>=
 
-markerImgtFileTable <- read.delim(system.file("data/Hmarker.imgt.msf.list.tab", package="mlgt"),
+markerImgtFileTable <- read.delim(system.file("data/marker.imgt.msf.list.tab", package="mlgt"),
 				header=T)
 
 # create a 'variantMap' object for each marker and store them all in a list.
 knownAlleleDb <- list()
 # takes about 2 minutes with 17 markers. 
 for(thisMarker in names(myMarkerList)) {
-	alleleAlignFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
+	alleleAlignFile <- system.file("data", markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker], package="mlgt")
 	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,
-		intersectMarkerList[[thisMarker]][1], alleleAlignFile)
+		myMarkerList[[thisMarker]][1], alleleAlignFile)
 }
 
 @
@@ -235,6 +235,19 @@ my.genotypes <- callGenotypes(my.mlgt.Result,  mapAlleles=TRUE,
 @
 
 The result is the same table of genotypes as before but with additional columns giving the names of alleles mapped to the variants.
+
+
+\subsection{Miscellaneous}
+
+I've not yet included good provision for exporting all the sequence variants. The \code{mlgtResult} objects do currently store the DNA sequences and their export shoud probably be linked to \code{callGenotypes}. In the meantime, unique variants can be output as fasta with this function:-
+
+<<eval=FALSE,keep.source=TRUE>>=
+dumpVariantMap.mlgtResult(my.mlgt.Result)
+@
+
+
+
+
 
 \end{document}
 
