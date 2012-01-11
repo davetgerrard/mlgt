@@ -23,6 +23,8 @@ R CMD texify --pdf testSweave.R.tex
 
 setwd("C:/Users/dave/HalfStarted/mlgt/testREADME")
 Sweave("../README")	# from sub-directory up to main mlgt directory
-R CMD texify --pdf README.tex
+#R CMD texify --pdf README.tex
+Stangle("../README")
+
 
 

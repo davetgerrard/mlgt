@@ -1073,10 +1073,10 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 #' @param subject The name of a single marker
 #'
 #' @return Plots three histograms: 
-#' /enumerate{
-#' /item{Alignment length}
-#' /item{Bit score}
-#' /item{% identity}
+#' \enumerate{
+#' \item{Alignment length}
+#' \item{Bit score}
+#' \item{% identity}
 #' }
 #' @export
 #' @seealso \code{\link{printBlastResultGraphs}}
@@ -1187,29 +1187,46 @@ plotGenotypeEvidence.list <- function(callList, file) {
 #' 
 #' Plot the distributions of values used in calling genotypes. 
 #'
-#' Currently only makes sense with "custom" method
+#' Currently only makes sense with "custom" method. The resulting plots are
+#' 	\enumerate{
+#' 		\item {Histogram of the number of sequences assigned to each sample}
+#'	 	\item {Histogram of diffToVarThree parameter. Used to decide whether to make the call}
+#' 		\item {Histogram of propDiffHomHet parameter. Used to distinguish HOMOZYGOTES and HETEROZYGOTES}
+#' 		\item {propDiffHomHet against diffToVarThree  }
+#'	 	\item {diffToVarThree against number of sequences}
+#' 		\item {propDiffHomHet against number of sequences}
+#' }
 #' 
 #' @param callList A \code{list} of genotypes calls.
 #' @param genotypeCall A single table of genotype calls
 #' @param file The file to write to. 
 #'
-#' @return Creates six plots for each marker with a genotypeCall table. 
-#' \enumerate {
-#' 	\item {Histogram of the number of sequences assigned to each sample}
-#' 	\item {Histogram of diffToVarThree parameter. Used to decide whether to make the call}
-#' 	\item {Histogram of propDiffHomHet parameter. Used to distinguish HOMOZYGOTES and HETEROZYGOTES}
-#' 	\item {propDiffHomHet against diffToVarThree  }
-#' 	\item {diffToVarThree against number of sequences}
-#' 	\item {propDiffHomHet against number of sequences}
-#' }
+#' @return Creates six plots for each marker with a genotypeCall table. See \code{details}.
 #'
 #' @export
-#' @aliases plotGenotypeEvidence.list,plotGenotypeEvidence.genotypeCall.file,plotGenotypeEvidence.genotypeCall
-#plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
-setGeneric("plotGenotypeEvidence", function(callList, genotypeCall, file) standardGeneric("plotGenotypeEvidence"))
+#' @seealso \code{\link{callGenotypes}}
+#' @aliases plotGenotypeEvidence.list
+#' @aliases plotGenotypeEvidence.genotypeCall.file
+#' @aliases plotGenotypeEvidence.genotypeCall
+#' @aliases plotGenotypeEvidence,missing,list,character-method
+#' @aliases plotGenotypeEvidence,genoytpeCall,missing,missing-method
+#' @aliases plotGenotypeEvidence,genoytpeCall,missing,character-method
+#' @rdname plotGenotypeEvidence-methods
+setGeneric("plotGenotypeEvidence", function(genotypeCall, callList, file) standardGeneric("plotGenotypeEvidence"))
+
+#' @export
+#' @rdname plotGenotypeEvidence-methods
 setMethod("plotGenotypeEvidence", signature(genotypeCall="missing", callList="list", file="character"), definition=plotGenotypeEvidence.list)
+
+#' @export
+#' @rdname plotGenotypeEvidence-methods
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="character"), definition=plotGenotypeEvidence.genotypeCall.file)
+
+#' @export
+#' @rdname plotGenotypeEvidence-methods
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="missing"), definition=plotGenotypeEvidence.genotypeCall)
+
+#plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
 
 
 #' Dump variants as fasta
