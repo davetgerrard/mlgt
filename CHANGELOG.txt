@@ -1,0 +1,12 @@
+mlgt changes
+
+
+
+
+
+
+
+Remove re-use of temp file names. Unique file names allows multiple instances of mlgt() to read/write in same directory. Files could always be deleted after use.
+
+
+Previous 0.11
