@@ -305,9 +305,10 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	## 12th Dec 11. Edited following rawseq extraction because failed when using large dataset. Replaced '-s' (queryList) option with '-i' (inputfile)
 	if(length(fPairSeqList ) > 0)  {
 		#queryList <- paste(fPairSeqList , collapse=",")
-		fIdFileName <- "fIdFile.txt"	
+		#fIdFileName <- "fIdFile.txt"	
+		fIdFileName <- paste("test", thisMarker, thisSample, "fIdFile.txt",sep=".")
 		write(fPairSeqList , file=fIdFileName )
-		fRawSeqFileName <- "fRawSeqExtract.fasta"
+		fRawSeqFileName <- paste("test", thisMarker, thisSample, "fRawSeqExtract.fasta",sep=".")
 		strand <- 1
 		#fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", fRawSeqFileName,  "-s", queryList)		
 		fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", fRawSeqFileName,  "-i", fIdFileName)	
@@ -318,9 +319,9 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 
 	if(length(rPairSeqList ) > 0)  {
 		#queryList <- paste(rPairSeqList , collapse=",")	
-		rIdFileName <- "rIdFile.txt"
+		rIdFileName <- paste("test", thisMarker, thisSample, "rIdFile.txt",sep=".")
 		write(rPairSeqList , file=rIdFileName )		
-		rRawSeqFileName <- "rRawSeqExtract.fasta"
+		rRawSeqFileName <- paste("test", thisMarker, thisSample, "rRawSeqExtract.fasta",sep=".")
 		strand <- 2
 		#fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", rRawSeqFileName,  "-s", queryList)		
 		fastacmdCommand  <- paste(fastacmdPath, "-p F -t T -d", "inputSeqs" , "-S", strand, "-o", rRawSeqFileName,  "-i", rIdFileName)
