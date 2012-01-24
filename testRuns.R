@@ -146,18 +146,28 @@ setwd( analysisDir )
 
 # data in fasta file.
 inputDataFile <- "C:/Users/dave/HalfStarted/mlgt/catLiverpoolNewcastleData.fasta"
-catDesign <- new("mlgtDesign", projectName="testProject", runName="ConcatData", 
-				samples=sampleList, markers=markerList,
-				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
+#catDesign <- prepareMlgtRun(projectName="testProject", runName="ConcatData", 
+#				samples=sampleList, markers=intersectMarkerList,
+#				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile )
 
-print(catDesign )
 
-prepareMlgtRun(catDesign )
+catDesign <- prepareMlgtRun(projectName="testProject", runName="cleanRun", 
+				samples=sampleList, markers=intersectMarkerList ,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile, overwrite="yes" )
+
+#print(catDesign )
+catDesign 
+#prepareMlgtRun(catDesign )
 
 catResult <- mlgt(catDesign )
 
 save(catResult, file="catResult.RData")
 
+cat.genotypes <- callGenotypes(catResult)
+
+plotGenotypeEvidence(callList=cat.genotypes, file="genotypeCallsAll.pdf")
+
+writeGenotypeCallsToFile(cat.genotypes )
 
 ##################
 
@@ -414,24 +424,67 @@ seqLab.rTagList <-  seqLab.fTagList <- list(MID1="ACGAGTGCGT", MID3="AGACGCACTC"
 
 # data in fasta file. C:\Users\dave\NextGen\DNAseqLab
 inputDataFile <- "C:/Users/dave/NextGen/DNAseqLab/1.TCA.454Reads.fna"
-dnaSeqLabTest.Design <- new("mlgtDesign", projectName="testProject", runName="dnaSeqLabTest", 
+dnaSeqLabTest.Design <- prepareMlgtRun( projectName="testProject", runName="dnaSeqLabTest", 
 				samples=seqLabSamples , markers=intersectMarkerList ,
-				fTags=seqLab.fTagList, rTags=seqLab.rTagList, inputFastaFile=inputDataFile )
+				fTags=seqLab.fTagList, rTags=seqLab.rTagList, inputFastaFile=inputDataFile, overwrite="yes" )
 
-print(dnaSeqLabTest.Design)
+printBlastResultGraphs(dnaSeqLabTest.Design)
 
-prepareMlgtRun(dnaSeqLabTest.Design)
+#prepareMlgtRun(dnaSeqLabTest.Design)
 
 dnaSeqLabTest.Result <- mlgt(dnaSeqLabTest.Design)
-
 save(dnaSeqLabTest.Result, file="dnaSeqLabTest.RData")
 
-test.genotypes <- callGenotypes.mlgtResult(dnaSeqLabTest.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
-write.table(test.genotypes, file="dnaSeqLabTest.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
+dnaSeqLabTest.Result
+dnaSeqLabTest.Result@markerSampleList[["A_E2"]]
+test.genotypes <- callGenotypes(dnaSeqLabTest.Result)
+
+test.genotypes[["A_E2"]]
+test.genotypes[["C_E3"]]
+test.genotypes[["DRB1_E2"]]
+
+plotGenotypeEvidence(genotypeCall = test.genotypes[["A_E3"]])
+plotGenotypeEvidence(genotypeCall = test.genotypes[["DRB1_E2"]])
+
+#test.genotypes <- callGenotypes.mlgtResult(dnaSeqLabTest.Result,  mapAlleles=TRUE, alleleDb=knownAlleleDb)
+#write.table(test.genotypes, file="dnaSeqLabTest.genotypesAlleles.tab",  quote=F, sep="\t", row.names=F)
 
 ##################
 
+#### USER problems
+# not specifying the auxillary paths correctly and/or having spaces in the path to the working directory (WINDOWS!)
+# TODO specify no spaces in file paths and test for this in scripts. Give parameter vals in single quotes?
+library(mlgt)
 
+formatdbPath <- "C:/Users/Public/Apps/Blast/bin/nothing.exe"
+fastacmdPath <- "C:/Users/Public/Apps/Blast/bin/nothing.exe"
+blastAllPath <- "C:/Users/Public/Apps/Blast/bin/nothing.exe"
+musclePath <- "C:/Users/Public/Apps/Muscle/nothing.8.31_i86win32.exe"
+
+
+analysisDir <-  "C:/Users/dave/HalfStarted/mlgt/testProject/errors"
+setwd( analysisDir )
+
+
+intersectMarkerList <- read.fasta("C:/Users/dave/HLA/data/alleleSeqs/HLA_intersectMarkersDec11.fasta", as.string=T)
+
+seqLabSamples <- c("MID1", "MID3")
+seqLab.rTagList <-  seqLab.fTagList <- list(MID1="ACGAGTGCGT", MID3="AGACGCACTC")		# same MIDs front and back.
+
+
+# data in fasta file. C:\Users\dave\NextGen\DNAseqLab
+inputDataFile <- "C:/Users/dave/NextGen/DNAseqLab/1.TCA.454Reads.fna"
+error.Design <- prepareMlgtRun( projectName="testProject", runName="dnaSeqLabTest", 
+				samples=seqLabSamples , markers=intersectMarkerList ,
+				fTags=seqLab.fTagList, rTags=seqLab.rTagList, inputFastaFile=inputDataFile, overwrite="yes" )
+
+
+
+
+
+
+
+###########
 
 
 

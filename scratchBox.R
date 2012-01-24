@@ -3,6 +3,65 @@
 
 
 
+############################DEVEL FOR v0.12
+
+
+### paths with spaces.
+
+Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
+		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
+		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
+		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
+pathNames <- c("BLASTALL_PATH","FORMATDB_PATH","FASTACMD_PATH","MUSCLE_PATH")
+
+for(thisPath in pathNames)  {
+	if(length(grep(" ",Sys.getenv(thisPath), fixed=T))  > 0 )  Sys.setenv(thisPath, shQuote(thisPath))
+}
+
+#shQuote
+
+
+#then need to test each of these and replace if necessary.
+
+# The input file needs to be tested too. 
+
+
+
+
+quotePath <- function(rawPathVarName) {
+	assign(rawPathVarName,shQuote(get(rawPathVarName)))	
+
+}
+
+
+tempPath <- "C:/Users/Public/Apps/Blast/bin 2/fastacmd.exe"
+quotePath("tempPath") 
+
+
+grep(" ", tempPath)
+
+grep(" ", tempPath) > 0
+
+
+
+
+Sys.setenv(R_TEST="testit", "A+C"=123)
+
+
+
+
+##############################################LATER TODO:
+
+
+#Script to be used to run in parallel (unlikely to have true multicore for Windows)
+
+
+
+
+
+
+############################################################
+
 
 # Looking at alleleDb objects
 
