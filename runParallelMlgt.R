@@ -41,6 +41,7 @@ my.result.list <- lapply(my.design.list, FUN=function(x) mlgt(x))
 # then need script to pull this back together. Or use snowfall package.
 # Another reason for a mergeMlgt() function may be to combine results across runs?
 
+#http://journal.r-project.org/2009-1/RJournal_2009-1_Knaus+et+al.pdf
 library(snowfall)
 
 sfInit(parallel=TRUE, cpus=4, type="SOCK")

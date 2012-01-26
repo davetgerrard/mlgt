@@ -3,8 +3,8 @@
 #' \tabular{ll}{
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
-#' Version: \tab 0.1\cr
-#' Date: \tab 2012-01-04\cr
+#' Version: \tab 0.12\cr
+#' Date: \tab 2012-01-25\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
@@ -25,7 +25,7 @@
 #' 
 #' ...
 #' 
-#' @references BLAST - NCBI
+#' @references BLAST - Altschul, S. F., W. Gish, W. Miller, E. W. Myers, and D. J. Lipman (1990). Basic local alignment search tool. Journal of molecular biology  215 (3), 403-410.
 #' @references MUSCLE - Robert C. Edgar (2004) MUSCLE: multiple sequence alignment with high accuracy and high throughput. Nucleic Acids Research 32(5), 1792-97.
 #' @references IMGT/HLA database - Robinson J, Mistry K, McWilliam H, Lopez R, Parham P, Marsh SGE (2011) The IMGT/HLA Database. Nucleic Acids Research 39 Suppl 1:D1171-6
 
@@ -79,7 +79,9 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	## clean up (remove) files. This function probably doesn't need to keep any files
 	## Use defined class for return object giving marker sequence used as reference. 
 	#alignedAlleles <- read.msf(alignedAlleleFile)
-		
+	
+	musclePath <- Sys.getenv("MUSCLE_PATH")
+	
 	switch(alignFormat,
 		"msf" =   {
 			alignedAlleles <- read.alignment(alignedAlleleFile, format="msf")
@@ -283,6 +285,19 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 #'
 getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq)  {
 
+	# check paths to auxillary programs
+	pathNames <- c("FASTACMD_PATH","MUSCLE_PATH")
+	for(thisPath in pathNames)  {
+		if(nchar(Sys.getenv(thisPath)) < 1) {
+			stop(paste(thisPath,"has not been set!"))
+		}
+	}
+	musclePath <- Sys.getenv("MUSCLE_PATH")
+	fastacmdPath <- Sys.getenv("FASTACMD_PATH")
+	if(length(grep(" ",musclePath, fixed=T))  > 0 ) musclePath <- shQuote(musclePath)
+	if(length(grep(" ",fastacmdPath, fixed=T))  > 0 ) fastacmdPath <- shQuote(fastacmdPath)
+
+
 	varCountTable <- data.frame()
 	#thisMarker <- "DPA1_E2"
 	#thisSample <- "MID-1"
@@ -358,6 +373,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	} else {
 		muscleCommand <- paste(musclePath, "-in", rawVariantFile , "-out", rawAlignFile , "-diags -quiet" )
 	}
+	#cat(paste(muscleCommand, "\n"))
 	system(muscleCommand)
 
 
@@ -374,13 +390,14 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 
 	alignedSubTable <- data.frame(rawSeq =  names(alignedSubSeqs ) , subSeq= as.character(unlist(alignedSubSeqs )))
 
-# Re-apply count of each seq.  There may be some duplicated subSeqs.
+	# Re-apply count of each seq.  There may be some duplicated subSeqs.
 	combTable <- merge(rawSeqCountTable ,alignedSubTable , by="rawSeq", all.x=T)
 	varCount <- by(combTable, as.character(combTable$subSeq), FUN=function(x) sum(x$rawCount))
 	varCountTable <- data.frame(alignedVar=names(varCount), count=as.numeric(varCount))	
 	varCountTable$var <- gsub("-","",varCountTable$alignedVar)
 	varCountTable <- varCountTable[order(varCountTable$count,decreasing=T),]
-# Make unique list, summing counts where same seq found. (easier in table than list).  
+
+	# Make unique list, summing counts where same seq found. (easier in table than list).  
 	# ?TODO?
 	return(varCountTable)
 
@@ -599,14 +616,18 @@ setMethod("mlgt","mlgtDesign", definition=mlgt.mlgtDesign)
 #
 #
 setUpBlastDb <- function(inputFastaFile, formatdbPath, blastdbName, indexDb="F")  {
-	formatdbCommand <- paste(formatdbPath, "-i", inputFastaFile ,  "-p F -o", indexDb ,"-n", blastdbName)
+	formatdbCommand <- paste(formatdbPath, "-i",  inputFastaFile ,  "-p F -o", indexDb ,"-n", blastdbName)
+	#cat(paste(formatdbCommand,"\n"))
 	system(formatdbCommand)
 }
 
 
-
-
-
+quoteIfSpaces <- function(pathString)  {
+	if(length(grep(" ",pathString, fixed=T))  > 0 ) {
+		  pathString <- shQuote(pathString)	
+	}
+	return(pathString)
+}
 
 #prepareMlgtRun <- function(object) attributes(object)
 #prepareMlgtRun <- function(designObject) attributes(designObject)
@@ -639,6 +660,10 @@ prepareMlgtRun <- function(designObject,projectName,runName, samples, markers,fT
 setGeneric("prepareMlgtRun")
 
 prepareMlgtRun.listDesign <- function(projectName,runName, samples, markers,fTags,rTags, inputFastaFile,overwrite="prompt")  {
+	# test inputFastaFile for spaces 
+	if(length(grep(" ",inputFastaFile, fixed=T))  > 0 ) stop(paste("mlgt cannot handle path names with whitespace. Sorry.\n ->>",inputFastaFile,"\n"))
+	#inputFastaFile <- quoteIfSpaces(inputFastaFile)
+
 	designObject <- new("mlgtDesign", projectName=projectName, runName=runName, 
 				samples=samples, markers=markers ,
 				fTags=fTags, rTags=rTags, inputFastaFile=inputFastaFile)
@@ -653,18 +678,53 @@ setMethod("prepareMlgtRun",
 	definition=prepareMlgtRun.listDesign)
 
 
+
+
 prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 	cat(paste(designObject@projectName,"\n"))
 
-	runPath <- getwd()	# could change this later
-	fTagsFastaFile <- paste(runPath,"fTags.fasta", sep="/")		
-	rTagsFastaFile <- paste(runPath,"rTags.fasta", sep="/")
-	markersFastaFile <- paste(runPath,"markers.fasta", sep="/")
-	rTagsBlastOutFile <- paste(runPath,"blastOut.rTags.tab", sep="/")
-	fTagsBlastOutFile <- paste(runPath,"blastOut.fTags.tab", sep="/")
-	blastOutFileName <- "blastOut.markers.tab"
-	markerBlastOutFile <- paste(runPath, blastOutFileName, sep="/")
+	#check pathNames of auxillary programs.
+	pathNames <- c("BLASTALL_PATH","FORMATDB_PATH","FASTACMD_PATH","MUSCLE_PATH")
+	for(thisPath in pathNames)  {
+		if(nchar(Sys.getenv(thisPath)) < 1) {
+			stop(paste(thisPath,"has not been set!"))
+		}
+		# shellQuote any paths containing spaces.
+		# Can't use variables in Sys.setenv
+		#if(length(grep(" ",Sys.getenv(thisPath), fixed=T))  > 0 )  Sys.setenv(thisPath= shQuote(thisPath))
+	}
 
+	formatdbPath <- Sys.getenv("FORMATDB_PATH")
+	fastacmdPath <- Sys.getenv("FASTACMD_PATH")
+	blastAllPath <- Sys.getenv("BLASTALL_PATH")
+
+	# shellQuote any paths containing spaces.
+	if(length(grep(" ",formatdbPath, fixed=T))  > 0 ) formatdbPath <- shQuote(formatdbPath)
+	if(length(grep(" ",fastacmdPath, fixed=T))  > 0 ) fastacmdPath <- shQuote(fastacmdPath)
+	if(length(grep(" ",blastAllPath, fixed=T))  > 0 ) blastAllPath <- shQuote(blastAllPath)
+
+
+
+	# runPath <- getwd()	# could change this later
+	# if(length(grep(" ",runPath , fixed=T))  > 0 )  {
+	# 	stop("mlgt cannot yet cope with path names containing spaces. Please move to a folder with no spaces in path. Sorry. \n")
+	# }
+	# fTagsFastaFile <- paste(runPath,"fTags.fasta", sep="/")
+	# rTagsFastaFile <- paste(runPath,"rTags.fasta", sep="/")
+	# markersFastaFile <- paste(runPath,"markers.fasta", sep="/")
+	# rTagsBlastOutFile <- paste(runPath,"blastOut.rTags.tab", sep="/")
+	# fTagsBlastOutFile <- paste(runPath,"blastOut.fTags.tab", sep="/")
+	# blastOutFileName <- "blastOut.markers.tab"
+	# markerBlastOutFile <- paste(runPath, blastOutFileName, sep="/")
+
+	# removed concatenation of runPath because of issue with space character. All output must now go to working directory
+	fTagsFastaFile <- "fTags.fasta"
+	rTagsFastaFile <- "rTags.fasta"
+	markersFastaFile <- "markers.fasta"
+	rTagsBlastOutFile <- "blastOut.rTags.tab"
+	fTagsBlastOutFile <- "blastOut.fTags.tab"
+	blastOutFileName <- "blastOut.markers.tab"
+	markerBlastOutFile <- blastOutFileName	#redundant?
 	existingFiles <- (file.exists(fTagsFastaFile ) | file.exists(rTagsFastaFile ) | file.exists(markersFastaFile ) | 
 					file.exists(rTagsBlastOutFile) | file.exists(fTagsBlastOutFile) | file.exists(markerBlastOutFile))
 	if(existingFiles)  {
@@ -947,7 +1007,7 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 #' @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
 #' @param table [Separate usage]
 #' @param alleleDb A list of \code{\link{variantMap}} objects derived from known alleles. As made by 
-#' \code{\link{createKnownAlleleDb}}
+#' \code{\link{createKnownAlleleList}}
 #' @param method How to call genotypes. Currently only "custom" is implemented.
 #' @param minTotalReads Minimum number of reads before attempting to call genotypes
 #' @param maxPropUniqueVars NOT USED

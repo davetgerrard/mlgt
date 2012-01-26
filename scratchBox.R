@@ -7,18 +7,78 @@
 
 
 ### paths with spaces.
-
+## Use this structure in the Vignette and general usage.
 Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
 		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
 		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
 		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
+
+
+library(seqinr)
+source("C:/Users/dave/HalfStarted/mlgt/mlgt.R")
+
+
+# Load MIDs used to mark samples
+fTagList <- read.fasta(system.file("data/namedBarcodes.fasta", package="mlgt"), 
+			as.string=T) 
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# Load the marker sequences. 
+myMarkerList <- read.fasta(system.file("data/HLA_namedMarkers.fasta", package="mlgt"),
+			as.string=T)	
+		
+# The fasta file of sequence reads
+inputDataFile <- system.file("data/sampleSequences.fasta", package="mlgt")
+
+setwd("C:/Users/dave/HalfStarted/mlgt/testProject/test space")
+
+# test space in path to aux program
+Sys.setenv(BLASTALL_PATH="C:/Users/dave/HalfStarted/mlgt/testProject/test space/blastall.exe")
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="myRun", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+Sys.setenv(BLASTALL_PATH="C:/Users/dave/HalfStarted/mlgt/testProject/test space/blastall.exe")
+Sys.setenv(MUSCLE_PATH="C:/Users/dave/HalfStarted/mlgt/testProject/test space/muscle3.8.31_i86win32.exe")
+my.mlgt.Result <- mlgt(my.mlgt.Design)
+
+# test space in input fasta file location
+inputDataFile <- "C:/Users/dave/HalfStarted/mlgt/testProject/test space/4.TCA.454Reads.fna"
+my.mlgt.Design2 <- prepareMlgtRun(projectName="myProject", 
+				runName="myRun", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+#############
+
+
+
+## Use this within the functions.
 pathNames <- c("BLASTALL_PATH","FORMATDB_PATH","FASTACMD_PATH","MUSCLE_PATH")
 
 for(thisPath in pathNames)  {
+	if(nchar(Sys.getenv(thisPath)) < 1) {
+		stop(paste(thisPath,"has not been set!"))
+	}
+	# shellQuote any paths containing spaces.
 	if(length(grep(" ",Sys.getenv(thisPath), fixed=T))  > 0 )  Sys.setenv(thisPath, shQuote(thisPath))
 }
 
 #shQuote
+
+#decided not to use because: doesn't work!
+quoteIfSpaces <- function(pathString)  {
+	if(length(grep(" ",pathString, fixed=T))  > 0 ) {
+		  pathString <- shQuote(pathString)	
+	}
+	return(pathString)
+}
+
 
 
 #then need to test each of these and replace if necessary.

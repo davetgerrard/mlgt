@@ -1,12 +1,14 @@
 mlgt changes
 
 
+Ver 0.12
 
+Added checks for whitespace in paths. Terminates prepareMlgtRun if inputfastafile has whitespace. Could not get formatdb to work with them (even with multiple escapes). 
 
-
-
+Replaced user specification of blastallPath, musclePath etc with environment variables BLASTALL_PATH, MUSCLE_PATH etc, which must be set by Sys.setenv. Added checks to prepareMlgtRun that they are set. Original variables still used internally. 
 
 Remove re-use of temp file names. Unique file names allows multiple instances of mlgt() to read/write in same directory. Files could always be deleted after use.
 
+Different sample data. 
 
 Previous 0.11

@@ -4,27 +4,28 @@ library(roxygen2)
 setwd("C:/Users/dave/HalfStarted/mlgt/testRoxygen")
 
 #package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
+#Update DESCRIPTION FILE for VERSION
 
 roxygenize("mlgt", unlink.target=T)
 
+#edit the namespace
 
+#R CMD INSTALL --build mlgt	# to get windows zip
 
-#R CMD INSTALL --build mlgt
+#R CMD build mlgt	# to get tar.gz
 
 # R CMD check mlgt
 
 
-### to use sweave on documentation
-# in R
-Sweave("testSweave.R")
-# then in DOS.
-R CMD texify --pdf testSweave.R.tex
 
+
+## Install the new package version
+###Generate the README 
 
 setwd("C:/Users/dave/HalfStarted/mlgt/testREADME")
-Sweave("../README")	# from sub-directory up to main mlgt directory
-#R CMD texify --pdf README.tex
-Stangle("../README")
+Sweave("../mlgt_README")	# from sub-directory up to main mlgt directory
+#R CMD texify --pdf mlgt_README.tex
+Stangle("../mlgt_README")
 
 
 
