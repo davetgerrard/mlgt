@@ -1,17 +1,304 @@
 
 
+
+testSeq <- "aaaaaagggggggtttttt"
+testAlign <- as.alignment(100,1:100,rep(testSeq,100))
+ testMatrix <- as.matrix(testAlign)
+ testMatrix[,c(1,3,5)]  <- c("b","b","b")
+
+
+
+
+
+
 ######################### DEVEL for v0.13
 
-having added varCountTables list to mlgtResult  
-good way to look at it
+## BIG TODO: work out how to replace uncorrected variants and alignment tables with corrected versions in mlgtResult.
 
+
+# having added varCountTables list to mlgtResult  
+# Here is a good way to look at it:-
 data.frame(my.mlgt.Result@varCountTables[["A_E3"]], row.names=NULL)
+
+
+
+
+
+## TODO: function to errorCorrect. Could be used within mlgt or called afterwards.
+
+thisMarker <- "DPA1_E2"
+thisSample <- "MID-22"
+
+
+
+
+## supply an UN-PACKKED alignment
+errorCorrect <- function(alignment, correctThreshold =0.01)  {
+	#alignment.corrected <- alignment
+	minDepth <- ceiling(1/0.01)	# no point attempting if less depth than this.
+	if(alignment$nb < minDepth) {
+		warning(paste("No correction possible with depth of", alignment$nb, "and correction threshold of", correctThreshold, "\n"))
+		return(alignment)
+	}
+			thisProfile <- consensus(alignment, method="profile")
+			thisConsensus <- con(alignment, method="threshold", threshold=correctThreshold )
+			totalSeqs <- alignment$nb
+			totalLetters <- nrow(thisProfile)
+			mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+			correct_index <- intersect(which(mafList < correctThreshold), which(mafList > 0))
+			#remove NAs from index.
+			correct_index <- correct_index[!is.na(thisConsensus[correct_index])]
+	
+		
+		alignment.matrix <- as.matrix.alignment(alignment)
+		alignment.matrix[,c(correct_index)] <- t(apply(alignment.matrix,1,FUN=function(x)  x[c(correct_index)]  <- thisConsensus[correct_index]))
+		seqList.correct <- apply(alignment.matrix,1,c2s)
+		alignment.corrected <- as.alignment(nb=length(seqList.correct),nam=names(seqList.correct),seq=seqList.correct)
+		return(alignment.corrected)
+}
+
+testAlign <- test
+
+testCorrect <- errorCorrect(alignment=testAlign)
+
+write.fasta(sequences=lapply(testAlign$seq,s2c), names=testAlign$nam, file.out="testUncorrection.fasta")
+write.fasta(sequences=lapply(testCorrect$seq,s2c), names=testCorrect$nam, file.out="testCorrection.fasta")
+
+
+### OLD VERSION DO NOT USE
+## wrapper function to perform errorCorrect on an existing mlgtResult object
+## this is basically mlgt() without any of the assignment and alignment.
+errorCorrect.mlgtResult <- function (mlgtResultObject,correctThreshold =0.01)  {
+	#mlgtResult.corrected <- mlgtResultObject
+		
+		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+
+
+			if(is.na(match(thisSample,names(thisTable)))) {
+				warning(paste("No variants for", thisSample, "and", thisMarker))
+				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				next;
+			}
+			cat(paste(thisSample ," "))
+			valueIndex <- !is.na(thisTable[,thisSample])
+			#cat(length(valueIndex))
+			#if(length(valueIndex) <1) next;
+			seqCounts <- thisTable[valueIndex,thisSample]
+			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+	
+			newAlign <- errorCorrect(thisAlign, correctThreshold)
+			
+
+			## TODO: repack the corrected alignment re-attribute the allele names. Update the markerSampleTable
+			seqCountTable <-  as.data.frame(table(unlist(newAlign$seq)))
+
+
+	# return(mlgtResult.corrected)
+
+}
+
+
+## wrapper function to perform errorCorrect on an existing mlgtResult object
+## this is basically mlgt() without any of the assignment and alignment.
+errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
+
+
+	##########ITERATIONS
+
+	markerSampleList <- list()
+	runSummaryTable <- data.frame()
+	alleleDb <- list()
+	varCountTableList <- list()
+
+	for(thisMarker in names(mlgtResultObject@markers)) {
+
+
+	cat(paste(thisMarker,"\n"))
+	#thisMarker <- "DQA1_E2"
+
+	## might need to combine all these to return a single item.
+	summaryList <- list()
+	summaryTable <- data.frame()
+	markerSequenceCount <- list("noSeq"=0)		#  BUG? requires some data otherwise won't sum properly with localSequenceCount.
+	alleleList <- list() 
+	variantList <- list()
+	alleleCount <- 1
+	markerSeq <- unlist(getSequence(mlgtResultObject@markers[[thisMarker]],as.string=T))
+	varCountTableList[[thisMarker]] <- data.frame()
+
+	thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+	
+	for(thisSample in mlgtResultObject@samples) {
+			cat(paste(thisSample ," "))
+		## need to keep data from mlgtResultObject where no correction is made, but create new data where a correction is made.
+
+			#testPairSeqList <- intersect(pairedSampleMap[[thisSample]],union(fMarkerMap[[thisMarker]], rMarkerMap[[thisMarker]]))
+
+
+
+		seqTable <- data.frame()
+		localAlleleNames <- c("NA","NA","NA")
+		localAlleleFreqs <- c(0,0,0)
+
+		## go through all seq's mapped to this marker/sample pair.
+		## extract the corresponding sequence delimited by the top blast hits on the primers.  IS THIS THE BEST WAY?
+		##		Simple improvement: minimum blast hit length to primer to keep. 
+
+		## internal Function
+
+		recordNoSeqs <- function(summaryTable)  {		# to record no seqs before skipping out. 
+				summaryRow <- data.frame(marker=thisMarker, sample=thisSample, numbSeqs=0,numbVars=0,
+					varName.1="NA", varFreq.1= 0,
+					varName.2="NA", varFreq.2= 0,
+					varName.3="NA", varFreq.3= 0)
+				summaryTable <- rbind(summaryTable, summaryRow)
+				return(summaryTable)
+		}
+
+
+		# differs from mlgt()
+		#if(length(testPairSeqList) < 1) {
+		#	#summaryList[[thisMarker]][[thisSample]] <- NA	
+		#	summaryTable  <- recordNoSeqs(summaryTable)
+		#	next ;	# skip to next sample
+		#} 
+
+
+
+
+		# differs here from mlgt()
+		# seq table has three columns 'var', 'alignedVar' and 'count'
+		#seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
+
+
+			#if(is.na(match(thisSample,names(thisTable)))) {
+			#	warning(paste("No variants for", thisSample, "and", thisMarker))
+			#	reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+			#	next;
+			#}
+
+			if(is.na(match(thisSample,names(thisTable)))) {
+				summaryTable  <- recordNoSeqs(summaryTable)
+				next;
+			}
+
+			valueIndex <- !is.na(thisTable[,thisSample])
+			seqCounts <- thisTable[valueIndex,thisSample]
+			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+			cat(paste(length(unique(thisAlign$seq)),"/", thisAlign$nb,"unique seqs in original alignment, "))
+
+			newAlign <- errorCorrect(thisAlign, correctThreshold)
+			
+			cat(paste(length(unique(newAlign$seq)),"/", newAlign$nb,"unique seqs in new alignment, "))
+			## TODO: repack the corrected alignment re-attribute the allele names. Update the markerSampleTable
+			varCountTable <-  as.data.frame(table(unlist(newAlign$seq)),stringsAsFactors=FALSE)
+
+			seqTable <- data.frame(alignedVar=varCountTable$Var1, count=as.numeric(varCountTable$Freq),stringsAsFactors=FALSE)
+			seqTable$var <- gsub("-","",seqTable$alignedVar)
+			seqTable <- seqTable[order(seqTable$count,decreasing=T),]
+		#dim(seqTable)
+		# if no sequences returned, nothing to process. 
+		if(nrow(seqTable) < 1 )  {
+			summaryTable  <- recordNoSeqs(summaryTable)
+			cat(" no variants\n")
+			#summaryList[[thisMarker]][[thisSample]] <- NA	
+			next ;		# go to next sample.
+		}
+
+		# store sequence and count of sequence as alignedVar (needed for alignment report)
+		varCountTableList[[thisMarker]][seqTable$alignedVar,thisSample] <- seqTable$count
+
+		## test if variants are novel. 
+		## Give allele names?  
+		## Do with first three for now. 
+
+		alToRecord <- min(3,nrow(seqTable))
+		if(alToRecord > 0)  {
+			for (a in 1:alToRecord )  {
+				if(is.null(variantList[[seqTable$var[a]]]))  {    	# novel
+					alleleName <- paste(thisMarker, alleleCount,sep=".")	
+					variantList[[seqTable$var[a]]] <- alleleName
+					localAlleleNames[a] <- alleleName 
+					localAlleleFreqs[a] <- seqTable$count[a]
+					alleleCount <- alleleCount + 1
+				} else  {										# pre-existing alllele
+					localAlleleNames[a] <- variantList[[seqTable$var[a]]]
+					localAlleleFreqs[a] <- seqTable$count[a]		
+				}
+			}
+		}
+
+
+		# sequence correction?  
+
+
+		# compile stats
+
+		if(nrow(seqTable) >0 )  {	# cannot allow assignment from empty list as messes up class of list for remaining iterations
+			summaryList[[thisMarker]] <- list()
+			summaryList[[thisMarker]][[thisSample]] <- seqTable
+		}
+
+		summaryRow <- data.frame(marker=thisMarker, sample=thisSample, numbSeqs=sum(seqTable$count),numbVars=nrow(seqTable),
+					varName.1=localAlleleNames[1], varFreq.1= localAlleleFreqs[1],
+					varName.2=localAlleleNames[2], varFreq.2= localAlleleFreqs[2],
+					varName.3=localAlleleNames[3], varFreq.3= localAlleleFreqs[3])
+		summaryTable <- rbind(summaryTable, summaryRow)
+
+		#sequence count across samples? 
+		# need to sum from summaryTable or from summaryList.
+		#markerSequenceCount <- 
+		#as.list(colSums(merge(m, n, all = TRUE), na.rm = TRUE))  # not working
+		localSequenceCount <- as.list(seqTable$count)
+		names(localSequenceCount) <- seqTable$var
+		markerSequenceCount   <- as.list(colSums(merge(markerSequenceCount  , localSequenceCount,  all = TRUE), na.rm = TRUE))
+		# might need to instantiate the markerSequenceCount if empty. 
+
+			cat("\n")
+
+	}  # end of sample loop
+
+	markerSampleList[[thisMarker]] <- summaryTable
+	## DONE: min(nchar(names(variantList))) throws warning when no variants in list. (Inf/-Inf)
+	minVarLength <- ifelse(length(markerSequenceCount) < 1, NA, min(nchar(names(markerSequenceCount))) )
+	maxVarLength <- ifelse(length(markerSequenceCount) < 1, NA, max(nchar(names(markerSequenceCount))) )
+	minAleLength <- ifelse(length(variantList) < 1, NA, min(nchar(names(variantList))) )
+	maxAleLength <- ifelse(length(variantList) < 1, NA, max(nchar(names(variantList))) )
+
+	runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
+					minVariantLength=minVarLength, 
+					maxVariantLength=maxVarLength,
+					minAlleleLength=minAleLength, maxAlleleLength=maxAleLength )
+	runSummaryTable <- rbind(runSummaryTable, runSummaryRow)
+	if(length(variantList) > 0)  {
+		# This line replaced. Not entirely tested the repurcussions. e.g. makeVarAlleleMap()?
+		#alleleDb[[thisMarker]] <- variantList   # LATER: separate lists for alleles and variants? 
+		#alleleDb[[thisMarker]] <- list(reference=as.SeqFastadna(markerSeq, thisMarker), alleleMap=variantList, inputAlleleCount = length(unlist(variantList)), uniqueSubAlleleCount=length(variantList))
+		alleleDb[[thisMarker]] <- new("variantMap", reference=as.SeqFastadna(markerSeq, thisMarker), 
+							variantSource=paste(mlgtResultObject@projectName, mlgtResultObject@runName,sep="."),
+							variantMap=variantList, inputVariantCount = length(unlist(variantList)), uniqueSubVariantCount=length(variantList))
+	}
+
+}  # end of marker loop
+	
+	localMlgtResult <- new("mlgtResult", mlgtResultObject,  runSummaryTable=runSummaryTable , alleleDb=alleleDb, markerSampleList=markerSampleList,
+						varCountTables=varCountTableList)
+	return(localMlgtResult)
+
+} 
+
+
+my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result)
 
 
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
 
 
-##i don't know what to do here..
+## TODO: Docs needed
 
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01,  consThreshold = 0.95, profPlotWidth = 60, fileName=NULL, method="table")  {
