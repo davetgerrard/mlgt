@@ -232,7 +232,8 @@ setClass("mlgtResult",
 	representation(
 			runSummaryTable="data.frame",
 			alleleDb="list" ,
-			markerSampleList="list"
+			markerSampleList="list",
+			varCountTables="list"
 	),
 	contains="mlgtDesign"
 )
@@ -284,7 +285,7 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 #' @return A table of unique variants and their counts. The sequences have been trimmed to the portion aligned with \option{markerSeq}
 #'
 getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq)  {
-
+	if(exists("verbose")) cat("getSubSeqsTable",thisSample, thisMarker,"\n")
 	# check paths to auxillary programs
 	pathNames <- c("FASTACMD_PATH","MUSCLE_PATH")
 	for(thisPath in pathNames)  {
@@ -393,7 +394,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	# Re-apply count of each seq.  There may be some duplicated subSeqs.
 	combTable <- merge(rawSeqCountTable ,alignedSubTable , by="rawSeq", all.x=T)
 	varCount <- by(combTable, as.character(combTable$subSeq), FUN=function(x) sum(x$rawCount))
-	varCountTable <- data.frame(alignedVar=names(varCount), count=as.numeric(varCount))	
+	varCountTable <- data.frame(alignedVar=names(varCount), count=as.numeric(varCount),stringsAsFactors=FALSE)	## added stringsAsFactors=FALSE to enable passing of aligned list
 	varCountTable$var <- gsub("-","",varCountTable$alignedVar)
 	varCountTable <- varCountTable[order(varCountTable$count,decreasing=T),]
 
@@ -449,6 +450,7 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	markerSampleList <- list()
 	runSummaryTable <- data.frame()
 	alleleDb <- list()
+	varCountTableList <- list()
 
 	for(thisMarker in names(designObject@markers)) {
 	#for(thisMarker in names(markerMap)) {
@@ -465,7 +467,8 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	variantList <- list()
 	alleleCount <- 1
 	markerSeq <- unlist(getSequence(designObject@markers[[thisMarker]],as.string=T))
-
+	varCountTableList[[thisMarker]] <- data.frame()
+	
 	for(thisSample in designObject@samples) {
 		#for(thisSample in names(pairedSampleMap)[1:4]) {
 			#print(thisSample)
@@ -513,8 +516,9 @@ mlgt.mlgtDesign  <- function(designObject)  {
 			next ;		# go to next sample.
 		}
 
-
-
+		# store sequence and count of sequence as alignedVar (needed for alignment report)
+		varCountTableList[[thisMarker]][seqTable$alignedVar,thisSample] <- seqTable$count
+		#varCountTableList[[thisMarker]][seqTable$var,thisSample] <- seqTable$count
 
 		#localSequenceMap <- split(seqTable[,2], seqTable[,1])
 
@@ -595,7 +599,8 @@ mlgt.mlgtDesign  <- function(designObject)  {
 
 }  # end of marker loop
 	
-	localMlgtResult <- new("mlgtResult", designObject,  runSummaryTable=runSummaryTable , alleleDb=alleleDb, markerSampleList=markerSampleList)
+	localMlgtResult <- new("mlgtResult", designObject,  runSummaryTable=runSummaryTable , alleleDb=alleleDb, markerSampleList=markerSampleList,
+						varCountTables=varCountTableList)
 	return(localMlgtResult)
 
 }  # end of mlgt function

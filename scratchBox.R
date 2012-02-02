@@ -1,5 +1,280 @@
 
 
+######################### DEVEL for v0.13
+
+having added varCountTables list to mlgtResult  
+good way to look at it
+
+data.frame(my.mlgt.Result@varCountTables[["A_E3"]], row.names=NULL)
+
+
+## Generate stats per site along the alignments. WITHIN a marker/sample pair.
+
+
+##i don't know what to do here..
+
+alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
+		correctThreshold = 0.01,  consThreshold = 0.95, profPlotWidth = 60, fileName=NULL, method="table")  {
+
+	# need method for both plots (save processing time) but how to do without generating profiles twice.
+	# need to tidy and label profile plots.
+
+	reportList <- list()
+	if(!is.null(fileName)) {
+		if(length(grep(".pdf$", fileName))  < 1 & !is.null(fileName)) {
+				fileName <- paste(fileName,"pdf", sep=".")
+			}
+		pdf(fileName)
+	}
+	for(thisMarker in markers)  {
+		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+		cat(paste(thisMarker,"\n"))
+		reportTable <- data.frame()
+		for(thisSample in samples) {
+			if(is.na(match(thisSample,names(thisTable)))) {
+				warning(paste("No variants for", thisSample, "and", thisMarker))
+				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				next;
+			}
+			cat(paste(thisSample ," "))
+			valueIndex <- !is.na(thisTable[,thisSample])
+			#cat(length(valueIndex))
+			#if(length(valueIndex) <1) next;
+			seqCounts <- thisTable[valueIndex,thisSample]
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+
+			thisProfile <- consensus(thisAlign , method="profile")
+			thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
+			totalSeqs <- sum(seqCounts)
+			totalLetters <- nrow(thisProfile)
+			mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+
+			reportTable[thisSample, "numbSeqs"] <- totalSeqs 
+			reportTable[thisSample, "numbVars"] <- length(seqCounts)
+			reportTable[thisSample, "alignLength"] <- ncol(thisProfile)			
+			reportTable[thisSample, "invar.sites"] <- sum(mafList == 0)
+			## variable sites with minor allele > correction threshold.
+			reportTable[thisSample, "mafAboveThreshold"] <- sum(mafList >= correctThreshold )
+			## varaible sites with minor alleles < correction threshold.
+			reportTable[thisSample, "mafBelowThreshold"] <- reportTable[thisSample, "alignLength"] - (reportTable[thisSample, "invar.sites"] + reportTable[thisSample, "mafAboveThreshold"])
+
+
+			
+			if(method=="profile")  {
+				#if(!is.null(fileName)) pdf(fileName)
+				## splits the plotting across so many lines. Buffers final plot to constant length.
+				n_plot <- ceiling(ncol(thisProfile)/ profPlotWidth )
+				old.o <- par(mfrow=c(n_plot,1), mar=c(2,4,2,2))
+				for(i in 1:n_plot) {
+					start <- ((i-1)*profPlotWidth) + 1
+					index <- start:(min(start+profPlotWidth, ncol(thisProfile)))
+					barplot(thisProfile[,index ], col=c("red", "green", "blue", "yellow"), names.arg=toupper(thisConsensus[index ]) )
+				}
+				par(old.o)
+
+
+			}
+
+			if(method=="hist")  {
+				#if(!is.null(fileName)) pdf(fileName)
+				if(sum(mafList > 0) > 0) {
+					hist(mafList[mafList > 0], breaks=200, xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
+					abline(v=correctThreshold, lty=2)
+				}	
+			}
+			
+		}
+		
+		
+		reportList[[thisMarker]] <- reportTable
+
+	}
+	if(!is.null(fileName)) {
+		dev.off()
+		cat(paste("Alignment figures(s) plotted to", fileName,"\n"))
+	}
+	#print(reportList)
+	return(reportList)
+
+}
+
+
+alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="profile")
+alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="hist", fileName="testOutHist")
+alignReport(my.mlgt.Result, method="profile", fileName="testOutMultiProfile")
+
+alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-17", method="profile")
+alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="hist")
+alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
+my.alignReport <- alignReport(my.mlgt.Result)
+
+
+
+plotSiteMaf <- function() {
+	
+
+}
+
+plotSiteMaf <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
+		correctThreshold = 0.01)  {
+	for(thisMarker in markers)  {
+		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+	
+		for(thisSample in samples) {
+			valueIndex <- !is.na(thisTable[,thisSample])
+
+			if(length(valueIndex) <1) next;
+			seqCounts <- thisTable[valueIndex,thisSample]
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+		
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+			thisProfile <- consensus(thisAlign , method="profile")
+			totalSeqs <- sum(seqCounts)
+			totalLetters <- nrow(thisProfile)
+			mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+			
+			hist(mafList, breaks=200, xlab="Site-specific minor allele frequency", main=paste(thisMarker, thisSample, sep=":")) 
+			abline(v=correctThreshold, lty=2)
+
+		}
+
+	}
+	
+}
+
+
+plotAlignProfile <- function(thisAlign, thisMarker, thisSample, countTotal, profPlotWidth=60) 	{
+		
+
+}
+
+plotAlignProfile <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
+		correctThreshold = 0.01, consThreshold = 0.95, profPlotWidth = 60)  {
+	for(thisMarker in markers)  {
+		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+		cat(paste(thisMarker,"\n"))
+		for(thisSample in samples) {
+			if(is.na(match(thisSample,names(thisTable)))) {
+				warning(paste("No variants for", thisSample, "and", thisMarker))
+				next;
+			}
+			#cat(paste(thisSample ," "))
+			valueIndex <- !is.na(thisTable[,thisSample])
+			#cat(length(valueIndex))
+			#if(length(valueIndex) <1) next;
+			seqCounts <- thisTable[valueIndex,thisSample]
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+		
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+			thisProfile <- consensus(thisAlign , method="profile")
+			thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
+			#totalSeqs <- sum(seqCounts)
+			#totalLetters <- nrow(thisProfile)
+			#mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+
+			## splits the plotting across so many lines. Buffers final plot to constant length.
+			n_plot <- ceiling(ncol(thisProfile)/ profPlotWidth )
+			old.o <- par(mfrow=c(n_plot,1))
+			for(i in 1:n_plot) {
+				start <- ((i-1)*profPlotWidth) + 1
+				index <- start:(min(start+profPlotWidth, ncol(thisProfile)))
+				barplot(thisProfile[,index ], col=c("red", "green", "blue", "yellow"), names.arg=toupper(thisConsensus[index ]) )
+			}
+			par(old.o)
+			
+
+		}
+
+	}	
+		
+}
+
+
+
+
+
+plotSiteMaf(my.mlgt.Result, markers=thisMarker, samples=thisSample)
+plotAlignProfile(my.mlgt.Result, markers=thisMarker, samples=thisSample) 
+
+plotSiteMaf(my.mlgt.Result)
+plotAlignProfile(my.mlgt.Result)
+
+my.alignReport <- alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample)
+
+my.alignReport <- alignReport(my.mlgt.Result)
+
+
+
+### NOT USING VARIANT COUNTS  # Is there any point?
+correctThreshold <- 0.01
+consThreshold <- 0.95
+profPlotWidth <- 60
+thisMarker <- "A_E3"
+thisMarker <- "DPA1_E2"
+thisSample <- "MID-8"
+thisSample <- "MID-17"
+thisTable <- my.mlgt.Result@varCountTables[[thisMarker]]
+valueIndex <- !is.na(thisTable[,thisSample])
+seqCounts <- thisTable[valueIndex,thisSample]
+sampleSeqs <- row.names(thisTable)[valueIndex ]
+
+thisAlign <- as.alignment(length(seqCounts), sampleSeqs, sampleSeqs)
+
+#as.matrix.alignment()
+
+thisProfile <- consensus(thisAlign , method="profile")
+thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
+
+#barplot(thisProfile, col=c("red", "green", "blue", "yellow"))
+
+n_plot <- ceiling(ncol(thisProfile)/ profPlotWidth )
+old.o <- par(mfrow=c(n_plot,1))
+for(i in 1:n_plot) {
+	start <- ((i-1)*profPlotWidth) + 1
+	index <- start:(min(start+profPlotWidth, ncol(thisProfile)))
+	barplot(thisProfile[,index ], col=c("red", "green", "blue", "yellow"), names.arg=toupper(thisConsensus[index ]) )
+}
+par(old.o)
+
+##########USING VARIANT COUNTS
+seqCounts <- thisTable[valueIndex,thisSample]
+sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+
+
+thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+
+thisProfile <- consensus(thisAlign , method="profile")
+thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
+
+#barplot(thisProfile, col=c("red", "green", "blue", "yellow"))
+
+n_plot <- ceiling(ncol(thisProfile)/ profPlotWidth )
+old.o <- par(mfrow=c(n_plot,1))
+for(i in 1:n_plot) {
+	start <- ((i-1)*profPlotWidth) + 1
+	index <- start:(min(start+profPlotWidth, ncol(thisProfile)))
+	barplot(thisProfile[,index ], col=c("red", "green", "blue", "yellow"), names.arg=toupper(thisConsensus[index ]) )
+}
+par(old.o)
+
+## report on frequency spectra of variable sites.
+
+## invariant sites
+## variable sites with minor allele > correction threshold.
+## varaible sites with minor alleles < correction threshold.
+
+totalSeqs <- sum(seqCounts)
+totalLetters <- nrow(thisProfile)
+mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+## invariant sites
+sum(mafList == 0)
+## variable sites with minor allele > correction threshold.
+sum(mafList > correctThreshold )
+## varaible sites with minor alleles < correction threshold.
+sum(mafList < correctThreshold )
+
+hist(mafList, breaks=200, xlab="Site-specific minor allele frequency", main=paste(thisMarker, thisSample, sep=":")) ; abline(v=correctThreshold, lty=2)
 
 
 
