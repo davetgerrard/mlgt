@@ -1,19 +1,66 @@
 
 
 
-testSeq <- "aaaaaagggggggtttttt"
-testAlign <- as.alignment(100,1:100,rep(testSeq,100))
+testSeq <- "aaaaaag--gggg-ggtttttt"
+testSeq2 <- "aaaaaag--ggggcggtttttt"
+testAlign <- as.alignment(100,1:100,c(rep(testSeq,90),rep(testSeq2,10)))
  testMatrix <- as.matrix(testAlign)
  testMatrix[,c(1,3,5)]  <- c("b","b","b")
 
+con(testAlign, method="threshold")
+gap_index <- which(con(testAlign, method="threshold",threshold=(1-1e-07)) == '-')		# bug in seqinr: threshold =1 returns NA for all.
 
-
-
-
+alignMatrix <- as.matrix(testAlign)[,-c(gap_index)]
+deGapSeqs <- apply(alignMatrix,1,c2s)
+deGapAlign <- as.alignment(testAlign$nb,testAlign$nam,deGapSeqs)
 
 ######################### DEVEL for v0.13
 
-## BIG TODO: work out how to replace uncorrected variants and alignment tables with corrected versions in mlgtResult.
+# TODO: errorCorrection as option within mlgt()
+# TODO: output fasta sequence of all variants in an alignment (useful for exploratory analysis)
+# TODO: errorCorrect: strip all-gap columns from corrected alignment
+
+
+stripGapColumns <- function(alignment)  {
+	gap_index <- which(con(alignment, method="threshold",threshold=(1-1e-07)) == '-')		# bug in seqinr: threshold =1 returns NA for all.
+	alignMatrix <- as.matrix(alignment)[,-c(gap_index)]
+	cat(paste("removed",length(gap_index),"gap columns "))
+	deGapSeqs <- apply(alignMatrix,1,c2s)
+	deGapAlign <- as.alignment(alignment$nb,alignment$nam,deGapSeqs)
+	return(deGapAlign)
+}
+
+#stripGapColumns(testAlign)
+
+
+
+dumpVariants <- function(mlgtResultObject, markers=names(mlgtResultObject@markers),
+			 samples=mlgtResultObject@samples, fileSuffix="variantDump.fasta") {
+	for(thisMarker in markers)  {
+		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+		for(thisSample in samples)  {
+			
+			if(is.na(match(thisSample,names(thisTable)))) {
+				warning(paste("Nothing to output for", thisMarker, thisSample))
+				next;
+			}
+			fileName <- paste(thisMarker,thisSample,fileSuffix, sep=".")
+			valueIndex <- !is.na(thisTable[,thisSample])
+			seqCounts <- thisTable[valueIndex,thisSample]
+			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+			
+			write.fasta(sequences=lapply(thisAlign$seq,s2c), names=thisAlign$nam, file.out=fileName)
+			cat(paste("Variants written to", fileName,"\n"))
+		}
+	}
+}
+
+dumpVariants(my.mlgt.Result,fileSuffix="variantDump.fasta")
+
+dumpVariants(my.corrected.mlgt.Result, markers="FLA_DRB", samples="cat348" )
+dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.fasta")
 
 
 # having added varCountTables list to mlgtResult  
@@ -54,6 +101,7 @@ errorCorrect <- function(alignment, correctThreshold =0.01)  {
 		alignment.matrix[,c(correct_index)] <- t(apply(alignment.matrix,1,FUN=function(x)  x[c(correct_index)]  <- thisConsensus[correct_index]))
 		seqList.correct <- apply(alignment.matrix,1,c2s)
 		alignment.corrected <- as.alignment(nb=length(seqList.correct),nam=names(seqList.correct),seq=seqList.correct)
+		alignment.corrected <- stripGapColumns(alignment.corrected)
 		return(alignment.corrected)
 }
 
@@ -294,6 +342,7 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 
 my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result)
 
+my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result,correctThreshold=0.05)
 
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
 
