@@ -25,29 +25,29 @@ Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
 		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
 		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
 		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
-fTagList <- read.fasta("C:/Users/Dave/Work/mlgtProject/data/namedBarcodes.fasta", 
-			as.string=T) 
-rTagList <- fTagList
-sampleList <- names(fTagList)
-myMarkerList <- read.fasta("C:/Users/Dave/Work/mlgtProject/data/HLA_namedMarkers.fasta",
-			as.string=T)	
+#fTagList <- read.fasta("C:/Users/Dave/Work/mlgtProject/data/namedBarcodes.fasta", 
+#			as.string=T) 
+#rTagList <- fTagList
+#sampleList <- names(fTagList)
+#myMarkerList <- read.fasta("C:/Users/Dave/Work/mlgtProject/data/HLA_namedMarkers.fasta",
+#			as.string=T)	
 		
-inputDataFile <- "C:/Users/Dave/Work/mlgtProject/data/sampleSequences.fasta"
+#inputDataFile <- "C:/Users/Dave/Work/mlgtProject/data/sampleSequences.fasta"
 
-my.mlgt.Design <-  prepareMlgtRun(projectName="testProject", runName="cleanRun", 
-				samples=sampleList, markers=myMarkerList,
-				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile, overwrite="yes" )
+#my.mlgt.Design <-  prepareMlgtRun(projectName="testProject", runName="cleanRun", 
+#				samples=sampleList, markers=myMarkerList,
+#				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile, overwrite="yes" )
 
-my.mlgt.Result <- mlgt(my.mlgt.Design)
-save(my.mlgt.Result, file= "my.mlgt.Result.RData")
+#my.mlgt.Result <- mlgt(my.mlgt.Design)
+#save(my.mlgt.Result, file= "my.mlgt.Result.RData")
 
 load("my.mlgt.Result.RData")
 
 # TODO: errorCorrection as option within mlgt()
-# TODO: output fasta sequence of all variants in an alignment (useful for exploratory analysis)
-# TODO: errorCorrect: strip all-gap columns from corrected alignment
+# DONE: output fasta sequence of all variants in an alignment (useful for exploratory analysis)
+# DONE: errorCorrect: strip all-gap columns from corrected alignment
 
-
+## TODO docs, internal
 stripGapColumns <- function(alignment)  {
 	gap_index <- which(con(alignment, method="threshold",threshold=(1-1e-07)) == '-')		# bug in seqinr: threshold =1 returns NA for all.
 	if(length(gap_index) < 1)  {	# nothing to strip
@@ -64,9 +64,14 @@ stripGapColumns <- function(alignment)  {
 #stripGapColumns(testAlign)
 
 
-
+## TODO docs, README entry
+## Examples
+## dumpVariants(my.mlgt.Result,fileSuffix="variantDump.fasta")
+## dumpVariants(my.corrected.mlgt.Result, markers="FLA_DRB", samples="cat348" )
+## dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.fasta")
+## dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.unique.fasta", uniqueOnly=T)
 dumpVariants <- function(mlgtResultObject, markers=names(mlgtResultObject@markers),
-			 samples=mlgtResultObject@samples, fileSuffix="variantDump.fasta") {
+			 samples=mlgtResultObject@samples, fileSuffix="variantDump.fasta", uniqueOnly=FALSE) {
 	for(thisMarker in markers)  {
 		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
 		for(thisSample in samples)  {
@@ -78,10 +83,15 @@ dumpVariants <- function(mlgtResultObject, markers=names(mlgtResultObject@marker
 			fileName <- paste(thisMarker,thisSample,fileSuffix, sep=".")
 			valueIndex <- !is.na(thisTable[,thisSample])
 			seqCounts <- thisTable[valueIndex,thisSample]
-			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
-			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
-			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
-			
+			if(uniqueOnly) {		# export one copy of each sequence, append count to name line
+				sampleSeqs <- row.names(thisTable)[valueIndex]
+				seqNames <- paste(sampleSeqs,seqCounts)
+				thisAlign <- as.alignment(length(seqCounts), seqNames, sampleSeqs)
+			} else {			# export copies of seqs as per counts.
+				## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
+				sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+				thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+			}
 			write.fasta(sequences=lapply(thisAlign$seq,s2c), names=thisAlign$nam, file.out=fileName)
 			cat(paste("Variants written to", fileName,"\n"))
 		}
@@ -92,7 +102,7 @@ dumpVariants(my.mlgt.Result,fileSuffix="variantDump.fasta")
 
 dumpVariants(my.corrected.mlgt.Result, markers="FLA_DRB", samples="cat348" )
 dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.fasta")
-
+dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.unique.fasta", uniqueOnly=T)
 
 # having added varCountTables list to mlgtResult  
 # Here is a good way to look at it:-
@@ -109,7 +119,7 @@ thisSample <- "MID-22"
 
 
 
-
+## TODO docs, interanl
 ## supply an UN-PACKKED alignment (including duplicated sequences)
 errorCorrect <- function(alignment, correctThreshold=0.01)  {
 	#alignment.corrected <- alignment
@@ -145,20 +155,33 @@ write.fasta(sequences=lapply(testCorrect$seq,s2c), names=testCorrect$nam, file.o
 
 
 
-
-
+## TODO docs, incorporate into mlgt() lots of duplicated code, README
+##
 ## wrapper function to perform errorCorrect on an existing mlgtResult object
 ## this is basically mlgt() without any of the assignment and alignment and a call to errorCorrect()
+## Examples:-
+## my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result)
+## my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result,correctThreshold=0.05)
+## alignReport(my.mlgt.Result, fileName="alignReportOut.pdf", method="profile")
+## alignReport(my.corrected.mlgt.Result, fileName="alignReportOut.corrected.pdf", method="profile")
+## alignReport(my.mlgt.Result, fileName="alignReportOut.hist.pdf", method="hist")
+## alignReport(my.corrected.mlgt.Result, fileName="alignReportOut.hist.corrected.pdf")
+## my.genotypes <- callGenotypes(my.mlgt.Result)
+## my.corrected.genotypes <- callGenotypes(my.corrected.mlgt.Result)
+## my.genotypes[[thisMarker]]@genotypeTable
+## my.corrected.genotypes[[thisMarker]]@genotypeTable
+## error correction has little effect on the the sample dataset even with high threshold of 0.05. Most samples with > 100 seqs are called correctly anyway.
 errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 
 
-	##########ITERATIONS
 
 	markerSampleList <- list()
 	runSummaryTable <- data.frame()
 	alleleDb <- list()
 	varCountTableList <- list()
 
+
+	###ITERATIONS
 	for(thisMarker in names(mlgtResultObject@markers)) {
 
 
@@ -203,28 +226,6 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 				summaryTable <- rbind(summaryTable, summaryRow)
 				return(summaryTable)
 		}
-
-
-		# differs from mlgt()
-		#if(length(testPairSeqList) < 1) {
-		#	#summaryList[[thisMarker]][[thisSample]] <- NA	
-		#	summaryTable  <- recordNoSeqs(summaryTable)
-		#	next ;	# skip to next sample
-		#} 
-
-
-
-
-		# differs here from mlgt()
-		# seq table has three columns 'var', 'alignedVar' and 'count'
-		#seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
-
-
-			#if(is.na(match(thisSample,names(thisTable)))) {
-			#	warning(paste("No variants for", thisSample, "and", thisMarker))
-			#	reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
-			#	next;
-			#}
 
 			if(is.na(match(thisSample,names(thisTable)))) {
 				summaryTable  <- recordNoSeqs(summaryTable)
@@ -356,7 +357,7 @@ my.corrected.genotypes[[thisMarker]]@genotypeTable
 
 
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
-## TODO: Docs needed
+## TODO: Docs needed, add e.g. to README
 ## This function is a bit weird in that it collects a table of info and, optionally, generates some graphs.
 ## What if people want to export the tables of results to file AND the images?
 ## EXAMPLES:- 
@@ -501,7 +502,7 @@ alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile",
 my.alignReport <- alignReport(my.mlgt.Result)
 
 
-## This might be useful but is replicated by alignReport(..., method="hist")
+## This might be useful but is replicated by alignReport(..., method="hist"). Not added to mlgt.R
 plotSiteMaf <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01)  {
 	for(thisMarker in markers)  {
@@ -530,7 +531,7 @@ plotSiteMaf <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 }
 
 
-## This might be useful but is replicated by alignReport(..., method="profile")
+## This might be useful but is replicated by alignReport(..., method="profile") Not added to mlgt.R
 ## currently fails to scale final (shorter) line to match previous lines
 ## also needs to display marker/sample info and summary info. 
 plotAlignProfile <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
