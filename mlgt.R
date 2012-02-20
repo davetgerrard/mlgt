@@ -1326,133 +1326,6 @@ dumpVariantMap.mlgtResult <- function(resultObject, markers=names(resultObject@m
 
 #dumpVariantMap.variantMap
 
-## Generate stats per site along the alignments. WITHIN a marker/sample pair.
-## TODO: Docs needed
-## This function is a bit weird in that it collects a table of info and, optionally, generates some graphs.
-## What if people want to export the tables of results to file AND the images?
-## EXAMPLES:- 
-## alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="profile")
-## alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="hist", fileName="testOutHist")
-## alignReport(my.mlgt.Result, method="profile", fileName="testOutMultiProfile")
-## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-17", method="profile")
-## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="hist")
-## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist") # good example where change would be useful
-## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
-## my.alignReport <- alignReport(my.mlgt.Result)
-alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
-		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
-
-	# need method for both plots (save processing time) but how to do without generating profiles twice.
-	# need to tidy and label profile plots.
-
-	reportList <- list()
-	if(!is.null(fileName)) {
-		if(length(grep(".pdf$", fileName))  < 1 & !is.null(fileName)) {
-				fileName <- paste(fileName,"pdf", sep=".")
-			}
-		pdf(fileName)
-	}
-
-	colTable <- data.frame(profChar = c("-","a","c","g","t"),
-					profCol = c("grey","green", "blue", "yellow", "red"))
-
-	for(thisMarker in markers)  {
-		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
-		cat(paste(thisMarker,"\n"))
-		if(nrow(thisTable) < 1)  {		# drops this marker if no data. Might be better to return and empty table?
-			if(warn) { 
-					warning(paste("No data for",  thisMarker)) 
-				}
-			#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
-			next;
-		}
-		reportTable <- data.frame()
-		for(thisSample in samples) {
-			if(is.na(match(thisSample,names(thisTable)))) {
-				if(warn) { 
-					warning(paste("No variants for", thisSample, "and", thisMarker)) 
-				}
-				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
-				next;
-			}
-			#cat(paste(thisSample ," "))
-			valueIndex <- !is.na(thisTable[,thisSample])
-			seqCounts <- thisTable[valueIndex,thisSample]
-			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
-			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
-
-			if(thisAlign$nb < 2)  {	# too few sequences to plot.
-				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
-				next; 
-			}
-			thisProfile <- consensus(thisAlign , method="profile")
-			thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
-			totalSeqs <- sum(seqCounts)
-			totalLetters <- nrow(thisProfile)
-			mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
-
-			reportTable[thisSample, "numbSeqs"] <- totalSeqs 
-			reportTable[thisSample, "numbVars"] <- length(seqCounts)
-			reportTable[thisSample, "alignLength"] <- ncol(thisProfile)			
-			reportTable[thisSample, "invar.sites"] <- sum(mafList == 0)
-			## variable sites with minor allele > correction threshold.
-			reportTable[thisSample, "mafAboveThreshold"] <- sum(mafList >= correctThreshold )
-			## varaible sites with minor alleles < correction threshold.
-			reportTable[thisSample, "mafBelowThreshold"] <- reportTable[thisSample, "alignLength"] - (reportTable[thisSample, "invar.sites"] + reportTable[thisSample, "mafAboveThreshold"])
-	
-			if(method=="profile")  {
-
-				profColours <-  as.character(colTable$profCol[match(row.names(thisProfile),colTable$profChar)])
-				## splits the plotting across so many lines. Buffers final plot to constant length.
-				profLen <- ncol(thisProfile)
-				n_plot <- ceiling(profLen / profPlotWidth )
-				plotProfile <- thisProfile
-				plotConsensus <-  toupper(thisConsensus) 
-				remainder <- profLen %% profPlotWidth 
-
-				if(remainder > 0) {
-					extLen <- profLen + (profPlotWidth - remainder)
-					profExtension <- matrix(0,nrow=nrow(thisProfile), ncol=(profPlotWidth - remainder), 
-								dimnames=list(row.names(thisProfile),c((profLen+1): extLen)))
-					plotProfile <- cbind(thisProfile,profExtension)
-					plotConsensus <- c(toupper(thisConsensus), rep("",remainder)) 
-				}
-
-				old.o <- par(mfrow=c((n_plot+1),1), mar=c(2,4,2,2))
-				plot.new()	
-				title(paste(thisMarker, thisSample, sep=" : "), line=0)		
-				title("", line=0,adj=0,	sub=paste(c("Total sites","Invariant sites","MAF above threshold","MAF below threshold"),reportTable[thisSample,3:6],sep=": ",collapse="\n") )
-				
-				legend("right", legend=toupper(colTable$profChar),fill=as.character(colTable$profCol), horiz=T)
-				for(i in 1:n_plot) {
-					start <- ((i-1)*profPlotWidth) + 1
-					#index <- start:(min(start+profPlotWidth, profLen))
-
-					index <- start:((start+profPlotWidth)-1)
-					barplot(plotProfile[,index ], col=profColours , names.arg=toupper(plotConsensus[index]) )
-				}
-				par(old.o)
-			}
-
-			if(method=="hist")  {
-				#if(!is.null(fileName)) pdf(fileName)
-				if(sum(mafList > 0) > 0) {
-					hist(mafList[mafList > 0], breaks=200, xlim=c(0,0.5), xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
-					abline(v=correctThreshold, lty=2)
-				}	
-			}
-			
-		}			
-		reportList[[thisMarker]] <- reportTable
-	}
-	if(!is.null(fileName)) {
-		dev.off()
-		cat(paste("Alignment figures(s) plotted to", fileName,"\n"))
-	}
-	#print(reportList)
-	return(reportList)
-}
-
 
 ## TODO docs, internal
 stripGapColumns <- function(alignment)  {
@@ -1471,7 +1344,7 @@ stripGapColumns <- function(alignment)  {
 
 ## TODO docs, interanl
 ## supply an UN-PACKKED alignment (including duplicated sequences)
-errorCorrect <- function(alignment, correctThreshold=0.01)  {
+errorCorrect.alignment <- function(alignment, correctThreshold=0.01)  {
 	#alignment.corrected <- alignment
 	minDepth <- ceiling(1/correctThreshold)	# no point attempting if less depth than this.
 	if(alignment$nb < minDepth) {
@@ -1582,7 +1455,7 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
 			cat(paste(length(unique(thisAlign$seq)),"/", thisAlign$nb,"unique seqs in original alignment, "))
 
-			newAlign <- errorCorrect(thisAlign, correctThreshold)
+			newAlign <- errorCorrect.alignment(thisAlign, correctThreshold)
 			
 			cat(paste(length(unique(newAlign$seq)),"/", newAlign$nb,"unique seqs in new alignment, "))
 			## TODO: repack the corrected alignment re-attribute the allele names. Update the markerSampleTable
@@ -1680,6 +1553,31 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 } 
 
 
+#' Alignment error correction
+#' 
+#' Correct very low frequency site variants.
+#' 
+#' You may want to alter some of the sequences if you believe that sequences at very low frequency 
+#' (within the set of sequences from a marker/sample pair) represent sequencing errors.
+#' Currently this is implemented as an additional step after running \code{\link{mlgt}}.
+#' Using \code{\link{alignReport}} beforehand may help you decide whether to do this. 
+#' 
+#' @param mlgtResultObject
+#' @param correctThreshold The maximimum Minor Allele Frequency (MAF) at which variants will be corrected. 
+#' 
+#' @return A new \code{\link{mlgtResult}} object with errors 'corrected'
+#' @export 
+#'
+#' @aliases errorCorrect.mlgtResult,errorCorrect.alignment,errorCorrect
+setGeneric("errorCorrect", function(alignment, mlgtResultObject, correctThreshold=0.01) standardGeneric("errorCorrect")) 
+
+setMethod("errorCorrect", signature(alignment="align", mlgtResultObject="missing",correctThreshold="ANY"), 
+				definition=errorCorrect.alignment)
+
+setMethod("errorCorrect", signature(alignment="missing", mlgtResultObject="mlgtResult",correctThreshold="ANY"), 
+				definition=errorCorrect.mlgtResult)
+
+
 
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
 ## TODO: Docs needed, add e.g. to README
@@ -1694,6 +1592,27 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 ## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist") # good example where change would be useful
 ## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
 ## my.alignReport <- alignReport(my.mlgt.Result)
+#' Report on alignment
+#' 
+#' Inspect site frequency spectra for alignments.
+#' 
+#' Produce different kinds of reports to assess quality of data for each marker/sample pair. 
+#' Can be a good way to assess whether \code{\link{errorCorrect}} should be applied.
+#' 
+#' 
+#' @param mlgtResultObject an object of class \code{\link{mlgtResult}}
+#' @param markers Which markers to output
+#' @param samples Which samples to output
+#' @param correctThreshold A hypothetical level at which you migth correct low frequence variants. Default = 0.01.
+#' @param consThreshold (1- correctThreshold)
+#' @param profPlotWidth How many residues to plot in \code{profile} mode. Default=60.
+#' @param fileName 
+#' @param method One of c("table", "profile", "hist"). "hist" plot a histogram of MAF frequencies. "profile" plots a coloured barplot represnting the allele frequencies at each site.
+#' @param warn Issue warnings (default = TRUE)
+#' 
+#' @return A data frame for each marker listing site statistics.
+#' @export 
+#' 
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
 
@@ -1811,17 +1730,30 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 
 
 
-
-
-
-
-
 ## TODO docs, README entry
 ## Examples
 ## dumpVariants(my.mlgt.Result,fileSuffix="variantDump.fasta")
 ## dumpVariants(my.corrected.mlgt.Result, markers="FLA_DRB", samples="cat348" )
 ## dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.fasta")
 ## dumpVariants(my.corrected.mlgt.Result,fileSuffix="corrected.0.05.variantDump.unique.fasta", uniqueOnly=T)
+#' Print sequence to file
+#' 
+#' A function to output all sequences or just unique sequences to a fasta file
+#' 
+#' The sequence variants stored within an object of class \code{\link{mlgtResult}}
+#' are not very easy to extract. This function will output all variants or all 
+#' variant for specific markers and samples into fasta files. Users can select to only
+#' output unique sequences or the full alignment including duplicated sequences.
+#' One file will be created for each marker/sample pair. 
+#' 
+#' @param mlgtResultObject an object of class \code{\link{mlgtResult}}
+#' @param markers Which markers to output
+#' @param samples Which samples to output
+#' @param fileSuffix Add a common suffix to the file names. Usefull for keeping track of different sets of sequences.
+#' @param uniqueOnly Only output single copy of each sequence. A count for each sequence are appended to the names.
+#' 
+#' @export
+#' 
 dumpVariants <- function(mlgtResultObject, markers=names(mlgtResultObject@markers),
 			 samples=mlgtResultObject@samples, fileSuffix="variantDump.fasta", uniqueOnly=FALSE) {
 	for(thisMarker in markers)  {
