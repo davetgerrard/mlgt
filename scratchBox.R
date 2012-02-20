@@ -50,6 +50,10 @@ load("my.mlgt.Result.RData")
 
 stripGapColumns <- function(alignment)  {
 	gap_index <- which(con(alignment, method="threshold",threshold=(1-1e-07)) == '-')		# bug in seqinr: threshold =1 returns NA for all.
+	if(length(gap_index) < 1)  {	# nothing to strip
+		cat("No gap columns to remove ")
+		return(alignment)
+	}
 	alignMatrix <- as.matrix(alignment)[,-c(gap_index)]
 	cat(paste("removed",length(gap_index),"gap columns "))
 	deGapSeqs <- apply(alignMatrix,1,c2s)
@@ -107,9 +111,9 @@ thisSample <- "MID-22"
 
 
 ## supply an UN-PACKKED alignment (including duplicated sequences)
-errorCorrect <- function(alignment, correctThreshold =0.01)  {
+errorCorrect <- function(alignment, correctThreshold=0.01)  {
 	#alignment.corrected <- alignment
-	minDepth <- ceiling(1/0.01)	# no point attempting if less depth than this.
+	minDepth <- ceiling(1/correctThreshold)	# no point attempting if less depth than this.
 	if(alignment$nb < minDepth) {
 		warning(paste("No correction possible with depth of", alignment$nb, "and correction threshold of", correctThreshold, "\n"))
 		return(alignment)
@@ -140,43 +144,11 @@ write.fasta(sequences=lapply(testAlign$seq,s2c), names=testAlign$nam, file.out="
 write.fasta(sequences=lapply(testCorrect$seq,s2c), names=testCorrect$nam, file.out="testCorrection.fasta")
 
 
-### OLD VERSION DO NOT USE
-## wrapper function to perform errorCorrect on an existing mlgtResult object
-## this is basically mlgt() without any of the assignment and alignment.
-errorCorrect.mlgtResult <- function (mlgtResultObject,correctThreshold =0.01)  {
-	#mlgtResult.corrected <- mlgtResultObject
-		
-		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
 
-
-			if(is.na(match(thisSample,names(thisTable)))) {
-				warning(paste("No variants for", thisSample, "and", thisMarker))
-				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
-				next;
-			}
-			cat(paste(thisSample ," "))
-			valueIndex <- !is.na(thisTable[,thisSample])
-			#cat(length(valueIndex))
-			#if(length(valueIndex) <1) next;
-			seqCounts <- thisTable[valueIndex,thisSample]
-			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
-			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
-			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
-	
-			newAlign <- errorCorrect(thisAlign, correctThreshold)
-			
-
-			## TODO: repack the corrected alignment re-attribute the allele names. Update the markerSampleTable
-			seqCountTable <-  as.data.frame(table(unlist(newAlign$seq)))
-
-
-	# return(mlgtResult.corrected)
-
-}
 
 
 ## wrapper function to perform errorCorrect on an existing mlgtResult object
-## this is basically mlgt() without any of the assignment and alignment.
+## this is basically mlgt() without any of the assignment and alignment and a call to errorCorrect()
 errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 
 
@@ -308,9 +280,6 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 		}
 
 
-		# sequence correction?  
-
-
 		# compile stats
 
 		if(nrow(seqTable) >0 )  {	# cannot allow assignment from empty list as messes up class of list for remaining iterations
@@ -371,6 +340,21 @@ my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result)
 
 my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result,correctThreshold=0.05)
 
+
+alignReport(my.mlgt.Result, fileName="alignReportOut.pdf", method="profile")
+alignReport(my.corrected.mlgt.Result, fileName="alignReportOut.corrected.pdf", method="profile")
+
+alignReport(my.mlgt.Result, fileName="alignReportOut.hist.pdf", method="hist")
+alignReport(my.corrected.mlgt.Result, fileName="alignReportOut.hist.corrected.pdf")
+
+my.genotypes <- callGenotypes(my.mlgt.Result)
+my.corrected.genotypes <- callGenotypes(my.corrected.mlgt.Result)
+
+my.genotypes[[thisMarker]]@genotypeTable
+my.corrected.genotypes[[thisMarker]]@genotypeTable
+## error correction has little effect on the the sample dataset even with high threshold of 0.05. Most samples with > 100 seqs are called correctly anyway.
+
+
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
 ## TODO: Docs needed
 ## This function is a bit weird in that it collects a table of info and, optionally, generates some graphs.
@@ -385,7 +369,7 @@ my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result,correctThresh
 ## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
 ## my.alignReport <- alignReport(my.mlgt.Result)
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
-		correctThreshold = 0.01,  consThreshold = 0.95, profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
+		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
 
 	# need method for both plots (save processing time) but how to do without generating profiles twice.
 	# need to tidy and label profile plots.
@@ -420,14 +404,16 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
 				next;
 			}
-			cat(paste(thisSample ," "))
+			#cat(paste(thisSample ," "))
 			valueIndex <- !is.na(thisTable[,thisSample])
-			#cat(length(valueIndex))
-			#if(length(valueIndex) <1) next;
 			seqCounts <- thisTable[valueIndex,thisSample]
 			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
 			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
 
+			if(thisAlign$nb < 2)  {	# too few sequences to plot.
+				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				next; 
+			}
 			thisProfile <- consensus(thisAlign , method="profile")
 			thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
 			totalSeqs <- sum(seqCounts)
@@ -442,9 +428,7 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			reportTable[thisSample, "mafAboveThreshold"] <- sum(mafList >= correctThreshold )
 			## varaible sites with minor alleles < correction threshold.
 			reportTable[thisSample, "mafBelowThreshold"] <- reportTable[thisSample, "alignLength"] - (reportTable[thisSample, "invar.sites"] + reportTable[thisSample, "mafAboveThreshold"])
-
-
-			
+	
 			if(method=="profile")  {
 
 				profColours <-  as.character(colTable$profCol[match(row.names(thisProfile),colTable$profChar)])
@@ -482,7 +466,7 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			if(method=="hist")  {
 				#if(!is.null(fileName)) pdf(fileName)
 				if(sum(mafList > 0) > 0) {
-					hist(mafList[mafList > 0], breaks=200, xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
+					hist(mafList[mafList > 0], breaks=200, xlim=c(0,0.5), xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
 					abline(v=correctThreshold, lty=2)
 				}	
 			}
@@ -498,6 +482,13 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 	return(reportList)
 }
 
+ thisTable <- my.mlgt.Result@varCountTables[[thisMarker]]
+ thisTable <- my.corrected.mlgt.Result@varCountTables[[thisMarker]]
+
+
+alignReport(my.corrected.mlgt.Result,markers="DQA1_E2", samples="MID-5", method="profile")
+alignReport(my.corrected.mlgt.Result,markers="DQA1_E2", samples="MID-8", method="profile")
+alignReport(my.corrected.mlgt.Result,markers="DQA1_E2", samples="MID-20", method="profile")
 
 alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="profile")
 alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="hist", fileName="testOutHist")

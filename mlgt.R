@@ -1326,7 +1326,6 @@ dumpVariantMap.mlgtResult <- function(resultObject, markers=names(resultObject@m
 
 #dumpVariantMap.variantMap
 
-
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
 ## TODO: Docs needed
 ## This function is a bit weird in that it collects a table of info and, optionally, generates some graphs.
@@ -1341,7 +1340,7 @@ dumpVariantMap.mlgtResult <- function(resultObject, markers=names(resultObject@m
 ## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
 ## my.alignReport <- alignReport(my.mlgt.Result)
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
-		correctThreshold = 0.01,  consThreshold = 0.95, profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
+		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
 
 	# need method for both plots (save processing time) but how to do without generating profiles twice.
 	# need to tidy and label profile plots.
@@ -1376,14 +1375,16 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
 				next;
 			}
-			cat(paste(thisSample ," "))
+			#cat(paste(thisSample ," "))
 			valueIndex <- !is.na(thisTable[,thisSample])
-			#cat(length(valueIndex))
-			#if(length(valueIndex) <1) next;
 			seqCounts <- thisTable[valueIndex,thisSample]
 			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
 			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
 
+			if(thisAlign$nb < 2)  {	# too few sequences to plot.
+				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				next; 
+			}
 			thisProfile <- consensus(thisAlign , method="profile")
 			thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
 			totalSeqs <- sum(seqCounts)
@@ -1398,9 +1399,7 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			reportTable[thisSample, "mafAboveThreshold"] <- sum(mafList >= correctThreshold )
 			## varaible sites with minor alleles < correction threshold.
 			reportTable[thisSample, "mafBelowThreshold"] <- reportTable[thisSample, "alignLength"] - (reportTable[thisSample, "invar.sites"] + reportTable[thisSample, "mafAboveThreshold"])
-
-
-			
+	
 			if(method=="profile")  {
 
 				profColours <-  as.character(colTable$profCol[match(row.names(thisProfile),colTable$profChar)])
@@ -1438,7 +1437,7 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			if(method=="hist")  {
 				#if(!is.null(fileName)) pdf(fileName)
 				if(sum(mafList > 0) > 0) {
-					hist(mafList[mafList > 0], breaks=200, xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
+					hist(mafList[mafList > 0], breaks=200, xlim=c(0,0.5), xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
 					abline(v=correctThreshold, lty=2)
 				}	
 			}
