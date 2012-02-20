@@ -1,5 +1,8 @@
 mlgt changes
 
+Ver 0.13
+
+Added alignReport() to report tables and graphics for multiple alignments. Useful to assess if error correction is worthwhile.
 
 Ver 0.12
 

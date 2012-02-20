@@ -16,6 +16,33 @@ deGapAlign <- as.alignment(testAlign$nb,testAlign$nam,deGapSeqs)
 
 ######################### DEVEL for v0.13
 
+library(seqinr)
+#source("C:/Users/dave/HalfStarted/mlgt/mlgt.R")
+source("C:/Users/Dave/Work/mlgtProject/mlgt/mlgt.R")
+
+setwd("C:/Users/Dave/Work/mlgtProject/testProject")
+Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
+		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
+		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
+		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
+fTagList <- read.fasta("C:/Users/Dave/Work/mlgtProject/data/namedBarcodes.fasta", 
+			as.string=T) 
+rTagList <- fTagList
+sampleList <- names(fTagList)
+myMarkerList <- read.fasta("C:/Users/Dave/Work/mlgtProject/data/HLA_namedMarkers.fasta",
+			as.string=T)	
+		
+inputDataFile <- "C:/Users/Dave/Work/mlgtProject/data/sampleSequences.fasta"
+
+my.mlgt.Design <-  prepareMlgtRun(projectName="testProject", runName="cleanRun", 
+				samples=sampleList, markers=myMarkerList,
+				fTags=fTagList, rTags=rTagList, inputFastaFile=inputDataFile, overwrite="yes" )
+
+my.mlgt.Result <- mlgt(my.mlgt.Design)
+save(my.mlgt.Result, file= "my.mlgt.Result.RData")
+
+load("my.mlgt.Result.RData")
+
 # TODO: errorCorrection as option within mlgt()
 # TODO: output fasta sequence of all variants in an alignment (useful for exploratory analysis)
 # TODO: errorCorrect: strip all-gap columns from corrected alignment
@@ -79,7 +106,7 @@ thisSample <- "MID-22"
 
 
 
-## supply an UN-PACKKED alignment
+## supply an UN-PACKKED alignment (including duplicated sequences)
 errorCorrect <- function(alignment, correctThreshold =0.01)  {
 	#alignment.corrected <- alignment
 	minDepth <- ceiling(1/0.01)	# no point attempting if less depth than this.
@@ -345,12 +372,20 @@ my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result)
 my.corrected.mlgt.Result <- errorCorrect.mlgtResult(my.mlgt.Result,correctThreshold=0.05)
 
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
-
-
 ## TODO: Docs needed
-
+## This function is a bit weird in that it collects a table of info and, optionally, generates some graphs.
+## What if people want to export the tables of results to file AND the images?
+## EXAMPLES:- 
+## alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="profile")
+## alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample, method="hist", fileName="testOutHist")
+## alignReport(my.mlgt.Result, method="profile", fileName="testOutMultiProfile")
+## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-17", method="profile")
+## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="hist")
+## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist") # good example where change would be useful
+## alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
+## my.alignReport <- alignReport(my.mlgt.Result)
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
-		correctThreshold = 0.01,  consThreshold = 0.95, profPlotWidth = 60, fileName=NULL, method="table")  {
+		correctThreshold = 0.01,  consThreshold = 0.95, profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
 
 	# need method for both plots (save processing time) but how to do without generating profiles twice.
 	# need to tidy and label profile plots.
@@ -362,13 +397,26 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			}
 		pdf(fileName)
 	}
+
+	colTable <- data.frame(profChar = c("-","a","c","g","t"),
+					profCol = c("grey","green", "blue", "yellow", "red"))
+
 	for(thisMarker in markers)  {
 		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
 		cat(paste(thisMarker,"\n"))
+		if(nrow(thisTable) < 1)  {		# drops this marker if no data. Might be better to return and empty table?
+			if(warn) { 
+					warning(paste("No data for",  thisMarker)) 
+				}
+			#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+			next;
+		}
 		reportTable <- data.frame()
 		for(thisSample in samples) {
 			if(is.na(match(thisSample,names(thisTable)))) {
-				warning(paste("No variants for", thisSample, "and", thisMarker))
+				if(warn) { 
+					warning(paste("No variants for", thisSample, "and", thisMarker)) 
+				}
 				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
 				next;
 			}
@@ -398,18 +446,37 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 
 			
 			if(method=="profile")  {
-				#if(!is.null(fileName)) pdf(fileName)
+
+				profColours <-  as.character(colTable$profCol[match(row.names(thisProfile),colTable$profChar)])
 				## splits the plotting across so many lines. Buffers final plot to constant length.
-				n_plot <- ceiling(ncol(thisProfile)/ profPlotWidth )
-				old.o <- par(mfrow=c(n_plot,1), mar=c(2,4,2,2))
+				profLen <- ncol(thisProfile)
+				n_plot <- ceiling(profLen / profPlotWidth )
+				plotProfile <- thisProfile
+				plotConsensus <-  toupper(thisConsensus) 
+				remainder <- profLen %% profPlotWidth 
+
+				if(remainder > 0) {
+					extLen <- profLen + (profPlotWidth - remainder)
+					profExtension <- matrix(0,nrow=nrow(thisProfile), ncol=(profPlotWidth - remainder), 
+								dimnames=list(row.names(thisProfile),c((profLen+1): extLen)))
+					plotProfile <- cbind(thisProfile,profExtension)
+					plotConsensus <- c(toupper(thisConsensus), rep("",remainder)) 
+				}
+
+				old.o <- par(mfrow=c((n_plot+1),1), mar=c(2,4,2,2))
+				plot.new()	
+				title(paste(thisMarker, thisSample, sep=" : "), line=0)		
+				title("", line=0,adj=0,	sub=paste(c("Total sites","Invariant sites","MAF above threshold","MAF below threshold"),reportTable[thisSample,3:6],sep=": ",collapse="\n") )
+				
+				legend("right", legend=toupper(colTable$profChar),fill=as.character(colTable$profCol), horiz=T)
 				for(i in 1:n_plot) {
 					start <- ((i-1)*profPlotWidth) + 1
-					index <- start:(min(start+profPlotWidth, ncol(thisProfile)))
-					barplot(thisProfile[,index ], col=c("red", "green", "blue", "yellow"), names.arg=toupper(thisConsensus[index ]) )
+					#index <- start:(min(start+profPlotWidth, profLen))
+
+					index <- start:((start+profPlotWidth)-1)
+					barplot(plotProfile[,index ], col=profColours , names.arg=toupper(plotConsensus[index]) )
 				}
 				par(old.o)
-
-
 			}
 
 			if(method=="hist")  {
@@ -420,11 +487,8 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 				}	
 			}
 			
-		}
-		
-		
+		}			
 		reportList[[thisMarker]] <- reportTable
-
 	}
 	if(!is.null(fileName)) {
 		dev.off()
@@ -432,7 +496,6 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 	}
 	#print(reportList)
 	return(reportList)
-
 }
 
 
@@ -442,16 +505,12 @@ alignReport(my.mlgt.Result, method="profile", fileName="testOutMultiProfile")
 
 alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-17", method="profile")
 alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="hist")
+alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist") # good example where change would be useful
 alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-1", method="profile", correctThreshold=0.02)
 my.alignReport <- alignReport(my.mlgt.Result)
 
 
-
-plotSiteMaf <- function() {
-	
-
-}
-
+## This might be useful but is replicated by alignReport(..., method="hist")
 plotSiteMaf <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01)  {
 	for(thisMarker in markers)  {
@@ -480,13 +539,14 @@ plotSiteMaf <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 }
 
 
-plotAlignProfile <- function(thisAlign, thisMarker, thisSample, countTotal, profPlotWidth=60) 	{
-		
-
-}
-
+## This might be useful but is replicated by alignReport(..., method="profile")
+## currently fails to scale final (shorter) line to match previous lines
+## also needs to display marker/sample info and summary info. 
 plotAlignProfile <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01, consThreshold = 0.95, profPlotWidth = 60)  {
+	
+	colTable <- data.frame(profChar = c("-","a","c","g","t"),
+					profCol = c("grey","green", "blue", "yellow", "red"))
 	for(thisMarker in markers)  {
 		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
 		cat(paste(thisMarker,"\n"))
@@ -509,13 +569,35 @@ plotAlignProfile <- function(mlgtResultObject, markers=names(mlgtResultObject@ma
 			#totalLetters <- nrow(thisProfile)
 			#mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
 
+			profColours <-  as.character(colTable$profCol[match(row.names(thisProfile),colTable$profChar)])
 			## splits the plotting across so many lines. Buffers final plot to constant length.
-			n_plot <- ceiling(ncol(thisProfile)/ profPlotWidth )
-			old.o <- par(mfrow=c(n_plot,1))
+			profLen <- ncol(thisProfile)
+			n_plot <- ceiling(profLen / profPlotWidth )
+			plotProfile <- thisProfile
+			plotConsensus <-  toupper(thisConsensus) 
+			remainder <- profLen %% profPlotWidth 
+			
+			if(remainder > 0) {
+				extLen <- profLen + (profPlotWidth - remainder)
+				profExtension <- matrix(0,nrow=nrow(thisProfile), ncol=(profPlotWidth - remainder), 
+							dimnames=list(row.names(thisProfile),c((profLen+1): extLen)))
+				#row.names
+				plotProfile <- cbind(thisProfile,profExtension)
+				plotConsensus <- c(toupper(thisConsensus), rep("",remainder)) 
+				#thisProfile[,(profLen+1): extLen ] <- 0
+			
+			}
+			
+			old.o <- par(mfrow=c((n_plot+1),1), mar=c(2,4,2,2))
+			plot.new()	
+			title(paste(thisMarker, thisSample, sep=" : "), line=0,	sub="no data")
+			legend("center", legend=toupper(colTable$profChar),fill=as.character(colTable$profCol), horiz=T)
 			for(i in 1:n_plot) {
 				start <- ((i-1)*profPlotWidth) + 1
-				index <- start:(min(start+profPlotWidth, ncol(thisProfile)))
-				barplot(thisProfile[,index ], col=c("red", "green", "blue", "yellow"), names.arg=toupper(thisConsensus[index ]) )
+				#index <- start:(min(start+profPlotWidth, profLen))
+				
+				index <- start:((start+profPlotWidth)-1)
+				barplot(plotProfile[,index ], col=profColours , names.arg=toupper(plotConsensus[index]) )
 			}
 			par(old.o)
 			
@@ -529,18 +611,22 @@ plotAlignProfile <- function(mlgtResultObject, markers=names(mlgtResultObject@ma
 
 
 
+thisMarker <- "DPA1_E2"
+thisSample <- "MID-11"
 
 plotSiteMaf(my.mlgt.Result, markers=thisMarker, samples=thisSample)
 plotAlignProfile(my.mlgt.Result, markers=thisMarker, samples=thisSample) 
 
-plotSiteMaf(my.mlgt.Result)
-plotAlignProfile(my.mlgt.Result)
+#plotSiteMaf(my.mlgt.Result)		# tries to plot multiple to same window. 
+#plotAlignProfile(my.mlgt.Result)	# tries to plot multiple to same window. 
 
 my.alignReport <- alignReport(my.mlgt.Result,markers=thisMarker, samples=thisSample)
 
-my.alignReport <- alignReport(my.mlgt.Result)
+#my.alignReport <- alignReport(my.mlgt.Result)	# breaks with error about recursive indexing.
 
 
+
+#################### old stuff
 
 ### NOT USING VARIANT COUNTS  # Is there any point?
 correctThreshold <- 0.01
@@ -625,8 +711,7 @@ Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
 		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
 
 
-library(seqinr)
-source("C:/Users/dave/HalfStarted/mlgt/mlgt.R")
+
 
 
 # Load MIDs used to mark samples
