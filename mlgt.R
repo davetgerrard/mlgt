@@ -1569,12 +1569,12 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 #' @export 
 #'
 #' @aliases errorCorrect.mlgtResult,errorCorrect.alignment,errorCorrect
-setGeneric("errorCorrect", function(alignment, mlgtResultObject, correctThreshold=0.01) standardGeneric("errorCorrect")) 
+setGeneric("errorCorrect", function(mlgtResultObject, alignment, correctThreshold=0.01) standardGeneric("errorCorrect")) 
 
-setMethod("errorCorrect", signature(alignment="list", mlgtResultObject="missing",correctThreshold="ANY"), 
+setMethod("errorCorrect", signature(mlgtResultObject="missing",alignment="list", correctThreshold="ANY"), 
 				definition=errorCorrect.alignment)
 
-setMethod("errorCorrect", signature(alignment="missing", mlgtResultObject="mlgtResult",correctThreshold="ANY"), 
+setMethod("errorCorrect", signature(mlgtResultObject="mlgtResult", alignment="missing", correctThreshold="ANY"), 
 				definition=errorCorrect.mlgtResult)
 
 

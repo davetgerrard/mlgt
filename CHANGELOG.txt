@@ -6,6 +6,9 @@ mlgtResult now retains all aligned variants. Enables generation of alignment rep
 
 Added alignReport() function to give tabular and graphical reports on sample/marker alignments. Focused on site-specific minor allele frequency.
 
+Added errorCorrect() function to create new mlgtResult object by correct low frequency variants, site-by-site.
+
+Added dumpVariants() as a first method to output variants as fasta sequences. Overlaps a bit with dumpVariantMap.mlgtResult
 
 Ver 0.12
 
