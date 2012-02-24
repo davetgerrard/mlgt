@@ -5,10 +5,12 @@ setwd("C:/Users/dave/HalfStarted/mlgt/testRoxygen")
 
 #package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
 #Update DESCRIPTION FILE for VERSION
+# delete contents of /man 
+# copy latest .R code to /R
 
 roxygenize("mlgt", unlink.target=T)
 
-#edit the namespace
+#edit the namespace. Remove "import(seqinr)"
 
 #R CMD INSTALL --build mlgt	# to get windows zip
 

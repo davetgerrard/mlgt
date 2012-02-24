@@ -3,8 +3,8 @@
 #' \tabular{ll}{
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
-#' Version: \tab 0.12\cr
-#' Date: \tab 2012-01-25\cr
+#' Version: \tab 0.13\cr
+#' Date: \tab 2012-02-25\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
@@ -1571,7 +1571,7 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 #' @aliases errorCorrect.mlgtResult,errorCorrect.alignment,errorCorrect
 setGeneric("errorCorrect", function(alignment, mlgtResultObject, correctThreshold=0.01) standardGeneric("errorCorrect")) 
 
-setMethod("errorCorrect", signature(alignment="align", mlgtResultObject="missing",correctThreshold="ANY"), 
+setMethod("errorCorrect", signature(alignment="list", mlgtResultObject="missing",correctThreshold="ANY"), 
 				definition=errorCorrect.alignment)
 
 setMethod("errorCorrect", signature(alignment="missing", mlgtResultObject="mlgtResult",correctThreshold="ANY"), 
