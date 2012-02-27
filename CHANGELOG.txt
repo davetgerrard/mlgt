@@ -1,5 +1,9 @@
 mlgt changes
 
+Ver 0.14
+
+Fixed bug in alignReport causing error when only 1 or 0 sequences.
+
 Ver 0.13
 
 mlgtResult now retains all aligned variants. Enables generation of alignment reports with goal of implementing error correction.

@@ -1,4 +1,139 @@
 
+######################### DEVEL for v0.14
+
+alignReport.fix <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
+		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
+
+	# need method for both plots (save processing time) but how to do without generating profiles twice.
+	# need to tidy and label profile plots.
+
+	reportList <- list()
+	if(!is.null(fileName)) {
+		if(length(grep(".pdf$", fileName))  < 1 & !is.null(fileName)) {
+				fileName <- paste(fileName,"pdf", sep=".")
+			}
+		pdf(fileName)
+	}
+
+	colTable <- data.frame(profChar = c("-","a","c","g","t"),
+					profCol = c("grey","green", "blue", "yellow", "red"))
+
+	for(thisMarker in markers)  {
+		thisTable <- mlgtResultObject@varCountTables[[thisMarker]]
+		cat(paste(thisMarker,"\n"))
+		if(nrow(thisTable) < 1)  {		# drops this marker if no data. Might be better to return and empty table?
+			if(warn) { 
+					warning(paste("No data for",  thisMarker)) 
+				}
+			#reportTable[thisSample,c("numbSeqs","numbVars")] <- 0
+			#reportTable[thisSample,c("alignLength","invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+			next;
+		}
+		reportTable <- data.frame()
+		for(thisSample in samples) {
+			if(is.na(match(thisSample,names(thisTable)))) {
+				if(warn) { 
+					warning(paste("No variants for", thisSample, "and", thisMarker)) 
+				}
+				#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				reportTable[thisSample,"numbSeqs"] <- 0
+				reportTable[thisSample,"numbVars"] <- 0
+				reportTable[thisSample,"alignLength"] <- NA
+				reportTable[thisSample,"invar.sites"] <- NA
+				reportTable[thisSample,"mafAboveThreshold"] <- NA
+				reportTable[thisSample,"mafBelowThreshold"] <- NA
+				next;
+			}
+			#cat(paste(thisSample ," "))
+			valueIndex <- !is.na(thisTable[,thisSample])
+			seqCounts <- thisTable[valueIndex,thisSample]
+			sampleSeqs <- rep(row.names(thisTable)[valueIndex ], seqCounts)
+			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
+
+			if(thisAlign$nb < 2)  {	# too few sequences to plot.
+				#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				reportTable[thisSample,"numbSeqs"] <- 1
+				reportTable[thisSample,"numbVars"] <- 1
+				reportTable[thisSample,"alignLength"] <- nchar(thisAlign$seq[1])
+				reportTable[thisSample,"invar.sites"] <- NA
+				reportTable[thisSample,"mafAboveThreshold"] <- NA
+				reportTable[thisSample,"mafBelowThreshold"] <- NA
+				next; 
+			}
+			thisProfile <- consensus(thisAlign , method="profile")
+			thisConsensus <- con(thisAlign, method="threshold", threshold=consThreshold)
+			totalSeqs <- sum(seqCounts)
+			totalLetters <- nrow(thisProfile)
+			mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+
+			reportTable[thisSample, "numbSeqs"] <- totalSeqs 
+			reportTable[thisSample, "numbVars"] <- length(seqCounts)
+			reportTable[thisSample, "alignLength"] <- ncol(thisProfile)			
+			reportTable[thisSample, "invar.sites"] <- sum(mafList == 0)
+			## variable sites with minor allele > correction threshold.
+			reportTable[thisSample, "mafAboveThreshold"] <- sum(mafList >= correctThreshold )
+			## varaible sites with minor alleles < correction threshold.
+			reportTable[thisSample, "mafBelowThreshold"] <- reportTable[thisSample, "alignLength"] - (reportTable[thisSample, "invar.sites"] + reportTable[thisSample, "mafAboveThreshold"])
+	
+			if(method=="profile")  {
+
+				profColours <-  as.character(colTable$profCol[match(row.names(thisProfile),colTable$profChar)])
+				## splits the plotting across so many lines. Buffers final plot to constant length.
+				profLen <- ncol(thisProfile)
+				n_plot <- ceiling(profLen / profPlotWidth )
+				plotProfile <- thisProfile
+				plotConsensus <-  toupper(thisConsensus) 
+				remainder <- profLen %% profPlotWidth 
+
+				if(remainder > 0) {
+					extLen <- profLen + (profPlotWidth - remainder)
+					profExtension <- matrix(0,nrow=nrow(thisProfile), ncol=(profPlotWidth - remainder), 
+								dimnames=list(row.names(thisProfile),c((profLen+1): extLen)))
+					plotProfile <- cbind(thisProfile,profExtension)
+					plotConsensus <- c(toupper(thisConsensus), rep("",remainder)) 
+				}
+
+				old.o <- par(mfrow=c((n_plot+1),1), mar=c(2,4,2,2))
+				plot.new()	
+				title(paste(thisMarker, thisSample, sep=" : "), line=0)		
+				title("", line=0,adj=0,	sub=paste(c("Total sites","Invariant sites","MAF above threshold","MAF below threshold"),reportTable[thisSample,3:6],sep=": ",collapse="\n") )
+				
+				legend("right", legend=toupper(colTable$profChar),fill=as.character(colTable$profCol), horiz=T)
+				for(i in 1:n_plot) {
+					start <- ((i-1)*profPlotWidth) + 1
+					#index <- start:(min(start+profPlotWidth, profLen))
+
+					index <- start:((start+profPlotWidth)-1)
+					barplot(plotProfile[,index ], col=profColours , names.arg=toupper(plotConsensus[index]) )
+				}
+				par(old.o)
+			}
+
+			if(method=="hist")  {
+				#if(!is.null(fileName)) pdf(fileName)
+				if(sum(mafList > 0) > 0) {
+					hist(mafList[mafList > 0], breaks=200, xlim=c(0,0.5), xlab="Site-specific minor allele frequency", sub="non-zero values only",main=paste(thisMarker, thisSample, sep=":")) 
+					abline(v=correctThreshold, lty=2)
+				}	
+			}
+			
+		}			
+		reportList[[thisMarker]] <- reportTable
+	}
+	if(!is.null(fileName)) {
+		dev.off()
+		cat(paste("Alignment figures(s) plotted to", fileName,"\n"))
+	}
+	#print(reportList)
+	return(reportList)
+}
+
+alignReport.fix(my.mlgt.Result.dgM,markers="DPB1_E2", samples="MID1", method="hist")
+alignReport.fix(my.mlgt.Result.dgM,markers="DPB1_E2", samples="MID1", method="profile")
+alignReport.fix(my.mlgt.Result.dgM,markers="DPA1_E2", samples="MID1", method="profile")
+alignReport.fix(my.mlgt.Result.dgM, method="profile",  file="alignReport.profile")
+
+
 
 ######################### DEVEL for v0.13
 

@@ -1094,7 +1094,8 @@ writeGenotypeCallsToFile.list <- function(callList, file, singleFile=FALSE,write
 
 }
 
-
+# TODO: allow write to single file when some markers mapped to alleles and some not. Consisten return of empty/NA/NaN columns?
+# TODO: allow prefix to denote instance of filename - otherwise different genotype call sets will overwrite each other.
 # generic method. Need to give defaults if defaults to be set in specific forms.
 #' Write genotype calls to file
 #' 
@@ -1639,7 +1640,8 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			if(warn) { 
 					warning(paste("No data for",  thisMarker)) 
 				}
-			#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+			#reportTable[thisSample,c("numbSeqs","numbVars")] <- 0
+			#reportTable[thisSample,c("alignLength","invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
 			next;
 		}
 		reportTable <- data.frame()
@@ -1648,7 +1650,13 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 				if(warn) { 
 					warning(paste("No variants for", thisSample, "and", thisMarker)) 
 				}
-				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				reportTable[thisSample,"numbSeqs"] <- 0
+				reportTable[thisSample,"numbVars"] <- 0
+				reportTable[thisSample,"alignLength"] <- NA
+				reportTable[thisSample,"invar.sites"] <- NA
+				reportTable[thisSample,"mafAboveThreshold"] <- NA
+				reportTable[thisSample,"mafBelowThreshold"] <- NA
 				next;
 			}
 			#cat(paste(thisSample ," "))
@@ -1658,7 +1666,13 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 			thisAlign <- as.alignment(sum(seqCounts), sampleSeqs, sampleSeqs)
 
 			if(thisAlign$nb < 2)  {	# too few sequences to plot.
-				reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				#reportTable[thisSample,c("invar.sites","mafBelowThreshold","mafAboveThreshold")] <- NA
+				reportTable[thisSample,"numbSeqs"] <- 1
+				reportTable[thisSample,"numbVars"] <- 1
+				reportTable[thisSample,"alignLength"] <- nchar(thisAlign$seq[1])
+				reportTable[thisSample,"invar.sites"] <- NA
+				reportTable[thisSample,"mafAboveThreshold"] <- NA
+				reportTable[thisSample,"mafBelowThreshold"] <- NA
 				next; 
 			}
 			thisProfile <- consensus(thisAlign , method="profile")
@@ -1728,7 +1742,6 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 	#print(reportList)
 	return(reportList)
 }
-
 
 
 
