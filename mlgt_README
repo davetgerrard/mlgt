@@ -82,7 +82,7 @@ setwd(analysisDir)
 
 
 
-You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. Example data are in the /data sub-directory of the mlgt package installation directory and can be found using \code{system.file()}. Finally, specify the location of the raw sequence file (fasta format) you want to analyse (\textbf{N.B.} The path to this file MUST NOT contain whitespace.).
+You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. Example data are in the /data sub-directory of the mlgt package installation directory and can be found using \texttt{system.file()}. Finally, specify the location of the raw sequence file (fasta format) you want to analyse (\textbf{N.B.} The path to this file MUST NOT contain whitespace.).
 
 <<label=Describe run,keep.source=TRUE>>=
 system.file("data/namedBarcodes.fasta", package="mlgt")
@@ -176,12 +176,10 @@ The new \emph{mlgtResult} object contains a table for each marker giving counts 
 A simple example of calling genotypes is
 
 <<label= Call genotypes>>=
-
 my.genotypes <- callGenotypes(my.mlgt.Result)
-
 @
 
-the result is the same table of variant counts with new columns to represent the genotype calls. \texbf{N.B.} currently, only one method is implemented - use \code{?callGenotypes} to see details. I hope to allow users to define their own methods for calling genotypes (NOT YET IMPLEMENTED). 
+the result is the same table of variant counts with new columns to represent the genotype calls. \texbf{N.B.} currently, only one method is implemented - use \texttt{?callGenotypes} to see details. I hope to allow users to define their own methods for calling genotypes (NOT YET IMPLEMENTED). 
 
 Once you have some genoytpes, you may want to export them to files. You can do this for individual markers or for all markers in the genotypeCall object.
 
@@ -199,7 +197,7 @@ plotGenotypeEvidence(genotypeCall=my.genotypes[["DPA1_E2"]])
 @
 \end{center}
 
-Again, these plots can be output to file, use \code{?plotGenotypeEvidence} to find out how.
+Again, these plots can be output to file, use \texttt{?plotGenotypeEvidence} to find out how.
 
 \subsection{Map to known allleles}
 
@@ -226,9 +224,9 @@ for(thisMarker in names(myMarkerList)) {
 
 \end{scriptsize}
 
-Once you have the allele map, it's a good idea to save it as an 'RData' file for future use (\code{?save}, \code{?load}). Give it a name that describes the source of the known alleles and the marker used. 
+Once you have the allele map, it's a good idea to save it as an 'RData' file for future use (\texttt{?save}, \texttt{?load}). Give it a name that describes the source of the known alleles and the marker used. 
 
-Now you can map variants to the new allele map. Run \emph{callGenotypes} again with the option \code{mapAlleles=TRUE} and giving the name of the allele map. 
+Now you can map variants to the new allele map. Run \emph{callGenotypes} again with the option \texttt{mapAlleles=TRUE} and giving the name of the allele map. 
 
 <<label= Call genotypes using known alleles, eval=FALSE,keep.source=TRUE>>=
 my.genotypes <- callGenotypes(my.mlgt.Result,  mapAlleles=TRUE,
@@ -242,7 +240,7 @@ The result is the same table of genotypes as before but with additional columns 
 
 In some test data sets, we found very high numbers of unique variants for many marker-sample pairs. Most variants differed by only one or two positions from the most commonly found variants. The situation was worst for long sequences. Believing that this was due to errors introduced during amplification and/or sequencing, we sought to 'correct' some of the sequences. N.B. the following is conducted for sets of sequences from the same marker sample pair - information is not shared across samples or markers.
 
-To help decide if error correction would be worthwhile, several alignment reports can be produced. The default is a table giving the alignment length, the number of invariant sites and the numbers of sites where the Minor Allele Frequency (MAF) is above or below a threshold. The MAF is the proportion of sequences with the SECOND most common variant across a set of sequences and is calculated site-by-site. The default threshold is 0.01. The funcion \code{alignReport()} can produce two graphics: 1) a profile of the alignment showing frequencies at every site, and 2) a histogram of site frequencies (a site frequency spectrum) with the default correction threshold shown as a dotted line. 
+To help decide if error correction would be worthwhile, several alignment reports can be produced. The default is a table giving the alignment length, the number of invariant sites and the numbers of sites where the Minor Allele Frequency (MAF) is above or below a threshold. The MAF is the proportion of sequences with the SECOND most common variant across a set of sequences and is calculated site-by-site. The default threshold is 0.01. The function \texttt{alignReport()} can produce two graphics: 1) a profile of the alignment showing frequencies at every site, and 2) a histogram of site frequencies (a site frequency spectrum) with the default correction threshold shown as a dotted line. 
 
 
 \begin{center}
@@ -258,9 +256,9 @@ alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist")
 \end{center}
 
 
-The graphs for all markers and samples can be output to files using \code{alignReport} with the \code{fileName} option specified.
+The graphs for all markers and samples can be output to files using \texttt{alignReport} with the \texttt{fileName} option specified.
 
-If the alignments have many sites below the correction threshold (i.e. very low frequency or unique variants) then \code{errorCorrect} can be used to change the bases at that position to the majority base. Any site with MAF above the threshold will be unchanged. If an alignment has fewer than 1/correctThreshold sequences, then errorCorrect will not attempt to make a correction (as none of the variants will have less that the threshold frequency). 
+If the alignments have many sites below the correction threshold (i.e. very low frequency or unique variants) then \texttt{errorCorrect} can be used to change the bases at that position to the majority base. Any site with MAF above the threshold will be unchanged. If an alignment has fewer than 1/correctThreshold sequences, then errorCorrect will not attempt to make a correction (as none of the variants will have less than the threshold frequency). 
 
 Running errorCorrect is currently an additional step to mlgt. It creates a new mlgtResult object but doesn't take very long.
 
@@ -277,7 +275,7 @@ If it has worked well, you may find that running callGenotypes on the corrected 
 
 \subsection{Miscellaneous}
 
-I've not yet included good provision for exporting all the sequence variants. The \code{mlgtResult} objects do currently store the DNA sequences and their export should probably be linked to \code{callGenotypes}. In the meantime, unique variants that have been assigned allele names can be output as fasta with this function:-
+I've not yet included good provision for exporting all the sequence variants. The \texttt{mlgtResult} objects do currently store the DNA sequences and their export should probably be linked to \texttt{callGenotypes}. In the meantime, unique variants that have been assigned allele names can be output as fasta with this function:-
 
 <<label=Output sequences, eval=FALSE,keep.source=TRUE>>=
 dumpVariantMap.mlgtResult(my.mlgt.Result)

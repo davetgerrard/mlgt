@@ -1562,11 +1562,12 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 #' Currently this is implemented as an additional step after running \code{\link{mlgt}}.
 #' Using \code{\link{alignReport}} beforehand may help you decide whether to do this. 
 #' 
-#' @param mlgtResultObject
+#' @param mlgtResultObject An object of class \code{\link{mlgtResult}}
 #' @param correctThreshold The maximimum Minor Allele Frequency (MAF) at which variants will be corrected. 
 #' 
 #' @return A new \code{\link{mlgtResult}} object with errors 'corrected'
 #' @export 
+#' @seealso \code{\link{alignReport}}
 #'
 #' @aliases errorCorrect.mlgtResult,errorCorrect.alignment,errorCorrect
 setGeneric("errorCorrect", function(mlgtResultObject, alignment, correctThreshold=0.01) standardGeneric("errorCorrect")) 
@@ -1606,11 +1607,12 @@ setMethod("errorCorrect", signature(mlgtResultObject="mlgtResult", alignment="mi
 #' @param correctThreshold A hypothetical level at which you migth correct low frequence variants. Default = 0.01.
 #' @param consThreshold (1- correctThreshold)
 #' @param profPlotWidth How many residues to plot in \code{profile} mode. Default=60.
-#' @param fileName 
+#' @param fileName Give a filename to export result to (pdf).
 #' @param method One of c("table", "profile", "hist"). "hist" plot a histogram of MAF frequencies. "profile" plots a coloured barplot represnting the allele frequencies at each site.
 #' @param warn Issue warnings (default = TRUE)
 #' 
 #' @return A data frame for each marker listing site statistics.
+#' @seealso \code{\link{errorCorrect}}
 #' @export 
 #' 
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
