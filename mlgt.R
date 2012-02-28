@@ -634,6 +634,18 @@ quoteIfSpaces <- function(pathString)  {
 	return(pathString)
 }
 
+copyIfSpaces <- function(pathString)  {
+	if(length(grep(" ",pathString, fixed=T))  > 0 ) {
+		newName <- make.names(basename(pathString))
+		file.copy(pathString,newName , overwrite=TRUE)
+		cat(paste("BLAST and MUSCLE cannot cope with whitespace in filenames.\nCopying",pathString,"to",newName,"\n"))
+		return(newName)
+	} else {
+		return(pathString)	
+	}
+}
+
+
 #prepareMlgtRun <- function(object) attributes(object)
 #prepareMlgtRun <- function(designObject) attributes(designObject)
 #' Prepare to run mlgt
@@ -666,8 +678,10 @@ setGeneric("prepareMlgtRun")
 
 prepareMlgtRun.listDesign <- function(projectName,runName, samples, markers,fTags,rTags, inputFastaFile,overwrite="prompt")  {
 	# test inputFastaFile for spaces 
-	if(length(grep(" ",inputFastaFile, fixed=T))  > 0 ) stop(paste("mlgt cannot handle path names with whitespace. Sorry.\n ->>",inputFastaFile,"\n"))
-	#inputFastaFile <- quoteIfSpaces(inputFastaFile)
+	
+	inputFastaFile <- copyIfSpaces(inputFastaFile)
+	#if(length(grep(" ",inputFastaFile, fixed=T))  > 0 ) stop(paste("mlgt cannot handle path names with whitespace. Sorry.\n ->>",inputFastaFile,"\n"))
+	##inputFastaFile <- quoteIfSpaces(inputFastaFile)
 
 	designObject <- new("mlgtDesign", projectName=projectName, runName=runName, 
 				samples=samples, markers=markers ,

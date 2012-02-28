@@ -1,6 +1,39 @@
 
 ######################### DEVEL for v0.14
 
+## test if coping with spaces in the input file location.
+
+Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
+		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
+		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
+		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
+
+
+
+
+
+# Load MIDs used to mark samples
+fTagList <- read.fasta(system.file("data/namedBarcodes.fasta", package="mlgt"), 
+			as.string=T) 
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# Load the marker sequences. 
+myMarkerList <- read.fasta(system.file("data/HLA_namedMarkers.fasta", package="mlgt"),
+			as.string=T)
+
+setwd("C:/Users/Dave/HalfStarted/mlgt/testProject/linkTest/")
+inputDataFile <- "C:/Temp/I am spaced/ID632_FM_preliminary_ALL.fasta"
+
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="spaceNames", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+######## below added to mlgt.R
+
 alignReport.fix <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
 
