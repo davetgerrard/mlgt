@@ -6,8 +6,26 @@ source("C:/Users/dave/HalfStarted/mlgt/mlgt.R")
 
 
 
+setwd("C:/Users/dave/HalfStarted/mlgt/testProject/runParallel")
+# mlgt.Design as per mlgt_README
+# Load MIDs used to mark samples
+fTagList <- read.fasta(system.file("data/namedBarcodes.fasta", package="mlgt"), 
+			as.string=T) 
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# Load the marker sequences. 
+myMarkerList <- read.fasta(system.file("data/HLA_namedMarkers.fasta", package="mlgt"),
+			as.string=T)	
+# The fasta file of sequence reads
+inputDataFile <- system.file("data/sampleSequences.fasta", package="mlgt")
 
-
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="myRun", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
 
 
 
@@ -58,6 +76,29 @@ sf.result.list <- sfLapply(my.design.list, mlgt)
 
 #   user  system elapsed 
 #   0.02    0.01   18.13
+
+# then join the results back into one. 
+project.mlgt.Results <- combineMlgtResults(sf.result.list)
+
+
+
+########### another test using split samples.
+
+my.design.list <- list()
+
+	my.design.list[['A']] <- my.mlgt.Design
+	my.design.list[['A']]@samples <- sampleList[1:5]
+
+	my.design.list[['B']] <- my.mlgt.Design
+	my.design.list[['B']]@samples <- sampleList[6:10]
+
+system.time(
+sample.result.list <- sfLapply(my.design.list, mlgt)
+)
+
+
+sample.mlgt.Result <- combineMlgtResults(sample.result.list)
+
 
 
 
