@@ -273,6 +273,68 @@ alignReport(my.mlgt.Result.Corrected, method="profile", fileName="alignReport_my
 
 If it has worked well, you may find that running callGenotypes on the corrected results gives more HOMOZYGOTE and HETEROZYGOTE calls. 
 
+
+\subsection{Combining result sets}
+
+Once you have a genotyping system up and running you may want to compare results from one run to another. The easiest way is probably to run each dataset through a common workflow and compare results after output of genotypes. However there are several instances in which you may want to combine results into a single mlgtResult object (e.g. to use a common set of allele names, or see recurrence of the same variants across samples).  
+
+Here I outline a case where samples have been split across several runs and you want to combine the results before genotyping.
+
+<<label=Combine_Results>>=
+my.design.list <- list()
+my.design.list[['A']] <- my.mlgt.Design
+my.design.list[['A']]@samples <- sampleList[1:5]
+my.design.list[['B']] <- my.mlgt.Design
+my.design.list[['B']]@samples <- sampleList[6:10]
+my.result.list <- lapply(my.design.list, FUN=function(x) mlgt(x))
+my.result.list
+combined.result <- combineMlgtResults(my.result.list)
+combined.result
+@
+
+Another opportunity to combine results comes during a parallelised mlgt run - see below.
+
+\subsection{Parallelization}
+The slowest part of mlgt is the mlgt() function itself. As each marker is analysed separately, the function is 'embarrassingly parallel' and easy to speed up if you have access to more than one processor. N.B. this section is about multi-threading, not about running on a compute cluster, though mlgt could be adapted to do that.  The procedure is to create a list of mlgtDesign objects, pertaining to a discrete subset of the markers and then use a separate processor to run mlgt on each member of the list.  After this has finished, there is a function to recombine the separate mlgtResult objects into a single result.
+
+The list approach can be demonstrated on a single processor (where each mlgt run happens in turn) using the lapply command.
+
+<<label=Show_list_use>>=
+# Create a list of mlgtDesign objects, each with only one marker.
+my.design.list <- list()
+for(thisMarker in names(myMarkerList))  {
+	my.design.list[[thisMarker]] <- my.mlgt.Design
+	my.design.list[[thisMarker]]@markers <- myMarkerList[thisMarker]
+	
+}
+# Use lapply to run mlgt() on each member of the list.
+system.time(
+	my.result.list <- lapply(my.design.list, FUN=function(x) mlgt(x))
+)
+@
+
+Alone, this isn't much use, but when combined with multi-threading, things get much faster. The easiest way I have found to do this in R is with the aid of the snowfall package. You will need to install the package and set a few environment variables.
+
+<<label=Prep_snowfall>>=
+#install.packages('snowfall')
+library(snowfall)
+
+sfInit(parallel=TRUE, cpus=4, type="SOCK")	# set your number of processors here.
+sfExport(list=ls())	# is this necessary?
+sfLibrary(mlgt)		# the 'nodes' need to load a copy of the relevant libraries
+sfLibrary(seqinr)	# is this one necessary?
+
+system.time(
+	sf.result.list <- sfLapply(my.design.list, mlgt)
+)
+@
+
+That should have been substantially faster. Now you need to combine the results into a single mlgtResult object. This is perhaps the most useful function of combineMlgtResults().
+
+<<label=Prep_snowfall>>=
+project.mlgt.Results <- combineMlgtResults(sf.result.list)
+@
+
 \subsection{Miscellaneous}
 
 I've not yet included good provision for exporting all the sequence variants. The \texttt{mlgtResult} objects do currently store the DNA sequences and their export should probably be linked to \texttt{callGenotypes}. In the meantime, unique variants that have been assigned allele names can be output as fasta with this function:-
