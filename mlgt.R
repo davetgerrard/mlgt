@@ -882,8 +882,26 @@ makeVarAlleleMap.list <- function(alleleDb, varDb,alleleMarkers=names(alleleDb),
 
 
 ## call genotypes on an "mlgtResult" object. Can select specific markers/samples to return. 
-
-callGenotypes.table <- function(table, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
+#' Default internal methods for \code{\link{callGenotypes}} 
+#'
+#' This is the default method to call genotypes from a table of variant counts.
+#' Methods:-
+#' \describe{
+#' 	\item{`callGenotypes.default'}{Three sequential steps for each marker/sample pair: 
+#' 		\enumerate{
+#'			\item {if the number of reads is less than \code{minTotalReads} the genotype is \emph{`tooFewReads'} }
+#'			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, then the genotype is \emph{`complexVars'}}
+#'			\item {if the difference between the counts of top two variants, expressed as a proportion of the total, is greater than or equal to \code{minPropDiffHomHetThreshold}, then the genotype is \emph{HOMOZYGOTE}. Otherwise it is \emph{HETEROZYGOTE}. }  
+#'		}
+#' 	}
+#' }
+#'
+#' @param minTotalReads Minimum number of reads before attempting to call genotypes
+#' @param minDiffToVarThree Difference between sum of counts of top two variants and the count of the third most frequent variant, expressed as proportion of total. 
+#' @param minPropDiffHomHetThreshold Difference between counts of top two variants. One way to distinguish HOMOZYGOTES and HETEROZYGOTES.
+#' @return A data.frame identical to those in markerSampleList but with additional columns giving parameter values, 
+#' and a 'status' column giving the genotype status.
+callGenotypes.default <- function(table, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
 					minPropToCall=0.1, minDiffToVarThree=0.4,
 					minPropDiffHomHetThreshold=0.3, mapAlleles=FALSE) {
 	
@@ -926,16 +944,41 @@ vectorOrRepeat <- function(paramValue, requiredLength) {
 
 }
 
+# replacement for vectorOrRepeat for cases where custom methods are allowed in callGenotypes().
+# Returns a list of lists each identical except where user specified a vector of parameter values.
+makeBigParamList <- function(..., markerCount)  {
+	params <- list(...)
+	paramBigList <- list()
+	for(i in 1:markerCount) {
+		paramBigList[[i]] <- params 
+	}
+	lengthList <- lapply(params , length)
+	vecParams <- which(lengthList > 1)
+	if(length(vecParams) > 0) {
+		vecNames <- names(params)[vecParams]
+		#cat(vecParams)
+		if(any(lengthList[vecParams] != markerCount)) { stop("Vector supplied that does not match length of markerList") }
+		for(i in 1:length(vecParams)) {
+			for(j in 1:markerCount) {
+				paramBigList[[j]][[vecNames[i]]] <- params[[vecNames[i]]][j] 
+			}
+		}
+	}
+	return(paramBigList)
+}
+
+
+
 ## To make this customisable, would need to include '...' as first argument so that users can add in variables. T
 ## This function would then pass those variables to the user supplied function 
 ## Some rules will have to be made on required input and output. 
 ## e.g. result should still be list of class "genotypeCall" but used could specify what the table can contain.
 ## and the user supplied parameters could be stored within the callParameters slot.
 ## IMPORTANT, would also need to sort out the generic set-up given below (probably no longer needed). 
-callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
-					minPropToCall=0.1, minDiffToVarThree=0.4,
-					minPropDiffHomHetThreshold=0.3, markerList=names(resultObject@markers),
-					sampleList=resultObject@samples, mapAlleles=FALSE	) {
+
+callGenotypes.mlgtResult <- function(..., resultObject,  method="callGenotypes.default",  
+					markerList=names(resultObject@markers),
+					sampleList=resultObject@samples, mapAlleles=FALSE, alleleDb=NULL	) {
 
 	## FM requested marker specific parameters.
 	## test for vectors in any of the calling parameters. 	
@@ -950,10 +993,12 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 
 #	if(length(minTotalReads) > 1 | length(minDiffToVarThree) > 1 | length(minPropDiffHomHetThreshold) > 1 )  {
 		# find parameters as vectors and test the lengths. Set those which are only 1 to be length of markerList.
-		minTotalReads <- vectorOrRepeat(minTotalReads, length(markerList))
-		minDiffToVarThree <- vectorOrRepeat(minDiffToVarThree, length(markerList))
-		minPropDiffHomHetThreshold<- vectorOrRepeat(minPropDiffHomHetThreshold, length(markerList))		
+		#minTotalReads <- vectorOrRepeat(minTotalReads, length(markerList))
+		#minDiffToVarThree <- vectorOrRepeat(minDiffToVarThree, length(markerList))
+		#minPropDiffHomHetThreshold<- vectorOrRepeat(minPropDiffHomHetThreshold, length(markerList))		
 
+		longParamList <- makeBigParamList(..., markerCount=length(markerList))
+		
 		# multiple parameter values set. Genotype each marker separately
 		for(i in 1:length(markerList))  {	
 			thisMarker <- markerList[i]	
@@ -963,9 +1008,13 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 				# do nothing with this marker
 				warning(paste("No data for:",thisMarker))
 			} else {
-				genotypeTable <- callGenotypes.table(subTable , alleleDb=alleleDb, method=method,minTotalReads=minTotalReads[i], 
-					minDiffToVarThree=minDiffToVarThree[i],
-					minPropDiffHomHetThreshold=minPropDiffHomHetThreshold[i], mapAlleles=mapAlleles)
+				thisParamList <- longParamList[[i]]
+				thisParamList[['table']] <- subTable
+				genotypeTable <- do.call(method, thisParamList )
+				
+				#genotypeTable <- callGenotypes.table(subTable , alleleDb=alleleDb, method=method,minTotalReads=minTotalReads[i], 
+				#	minDiffToVarThree=minDiffToVarThree[i],
+				#	minPropDiffHomHetThreshold=minPropDiffHomHetThreshold[i], mapAlleles=mapAlleles)
 				#genotypeTable <- rbind(genotypeTable , subGenoTable)
 
 				if(mapAlleles) {
@@ -996,19 +1045,12 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 						marker=thisMarker ,
 						genotypeTable=genotypeTable,
 						callMethod=method,
-						callParameters=list("minTotalReads"=as.integer(minTotalReads[i]),
-							"minDiffToVarThree"=minDiffToVarThree[i],	"minPropDiffHomHetThreshold"=minPropDiffHomHetThreshold[i]),
+						callParameters=longParamList[[i]],
 						mappedToAlleles=mapAlleles,
 						alleleDbName="NeedToSetThis" )
 			}
-
-
 		}
-	
-	#return(genotypeTable)
 	return(callResults)
-	#new("genotypeCall", 
-
 }
 
 
@@ -1022,7 +1064,7 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 #' one method is implemented (\emph{`custom'}).
 #' Methods:-
 #' \describe{
-#' 	\item{`custom'}{Three sequential steps for each marker/sample pair: 
+#' 	\item{`callGenotypes.default'}{Three sequential steps for each marker/sample pair: 
 #' 		\enumerate{
 #'			\item {if the number of reads is less than \code{minTotalReads} the genotype is \emph{`tooFewReads'} }
 #'			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, then the genotype is \emph{`complexVars'}}
@@ -1033,15 +1075,11 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 #' 
 #' 
 #' @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
-#' @param table [Separate usage]
+#' @param table [Separate usage] A table of variant counts. 
 #' @param alleleDb A list of \code{\link{variantMap}} objects derived from known alleles. As made by 
 #' \code{\link{createKnownAlleleList}}
-#' @param method How to call genotypes. Currently only "custom" is implemented.
-#' @param minTotalReads Minimum number of reads before attempting to call genotypes
-#' @param maxPropUniqueVars NOT USED
-#' @param minPropToCall NOT USED
-#' @param minDiffToVarThree Difference between sum of counts of top two variants and the count of the third most frequent variant, expressed as proportion of total. 
-#' @param minPropDiffHomHetThreshold Difference between counts of top two variants. One way to distinguish HOMOZYGOTES and HETEROZYGOTES.
+#' @param method How to call genotypes. Currently only "callGenotypes.default" is implemented. Users can define
+#' their own methods as R functions (see the vignette).
 #' @param markerList For which of the markers do you want to call genotypes (default is all)?
 #' @param sampleList For which of the samples do you want to call genotypes (default is all)?
 #' @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
@@ -1050,7 +1088,7 @@ callGenotypes.mlgtResult <- function(resultObject, alleleDb=NULL, method="custom
 #'
 #' @export
 #' @docType methods
-#' @aliases callGenotypes.mlgtResult, callGenotypes.table
+#' @aliases callGenotypes.mlgtResult
 setGeneric("callGenotypes",  function(resultObject, table, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
 					minPropToCall=0.1, minDiffToVarThree=0.4,
 					minPropDiffHomHetThreshold=0.3, markerList=names(resultObject@markers),
@@ -1062,7 +1100,7 @@ setGeneric("callGenotypes",  function(resultObject, table, alleleDb=NULL, method
 setMethod("callGenotypes", signature(resultObject="missing", table="data.frame", alleleDb="ANY", method="ANY", minTotalReads="ANY", maxPropUniqueVars="ANY", 
 					minPropToCall="ANY", minDiffToVarThree="ANY",minPropDiffHomHetThreshold="ANY", markerList="ANY",
 					sampleList="ANY", mapAlleles="ANY"), 
-			definition=callGenotypes.table )
+			definition=callGenotypes.default )
 
 
 setMethod("callGenotypes", signature(resultObject="mlgtResult", table="missing", alleleDb="ANY", method="ANY", minTotalReads="ANY", maxPropUniqueVars="ANY", 
