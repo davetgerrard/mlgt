@@ -1,4 +1,15 @@
 
+sampleTable <- read.delim("C:/Users/dave/HalfStarted/mlgt/data/sampleMids.tab", header=T)
+
+sampleTable <- read.delim("C:/Users/dave/HalfStarted/mlgt/data/sampleMids.tab", header=T, stringsAsFactors=F)
+fTagList <- as.list(sampleTable$barcode.seq)
+names(fTagList) <- sampleTable$sample.id
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+
+
+
 ######################### DEVEL for v0.14
 
 ## test if coping with spaces in the input file location.

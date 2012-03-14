@@ -8,6 +8,14 @@ Added copyIfSpaces() to copy sequence files if their path contains spaces.
 
 Added combineMlgtResults() function to combine mlgt results. Especially useful if runnning mlgt in parallel but could also be used to combine results across runs.
 
+Added 'filePrefix' parameter to writeGenotypeCallsToFile, allows users distinguish sets of output tables.
+
+Reworked callGenotypes() to allow user specification of custom methods. The previous default method callGenotypes.table() is now not aliased and is named callGenotypes.default(). Removed setGeneric call for callGenotypes() as there is now only one primary method.
+
+Reworked getSubseqsTable to use maxVarsToAlign=30 most common variants only when greater than a threshold (minTotalCount=500 ) number of raw sequences. This function now also returns an object of class 'varCount' which includes the table of variants as well as summary counts of variants and total reads. The result sub.alignments contain fewer raw variants and are much tidier. Updated mlgt() to accept the new varCount object and added new statistics as new columns in the table that appears in markerSampleList.
+
+
+
 Ver 0.13
 
 mlgtResult now retains all aligned variants. Enables generation of alignment reports with goal of implementing error correction.

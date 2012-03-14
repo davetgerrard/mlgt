@@ -331,8 +331,22 @@ system.time(
 
 That should have been substantially faster. Now you need to combine the results into a single mlgtResult object. This is perhaps the most useful function of combineMlgtResults().
 
-<<label=Prep_snowfall>>=
+<<label=Run_snowfall>>=
 project.mlgt.Results <- combineMlgtResults(sf.result.list)
+@
+
+\subsection{Custom genotype call methods}
+
+I made up the method to call genotypes based on the relative frequencies of certain variants. If users would like to use an alternative method within mlgt, they can specify a new function and pass this by name to callGenotypes(). The function must accept a data frame as argument `table' and return the same table after modification. Give default values to any additional parameters that you want to include. The example below creates a column `status' and records genotypes "good" or "bad" depending on the proportion of unique variants. 
+
+<<label=Custom_Call>>=
+callGenotypes.custom <- function(table, maxPropUniqueVars=0.5) {
+	table$status <- "notCalled"
+	table$propUniqueVars <- table$numbVar/table$numbSeq)
+	table$status <- ifelse(table$propUniqueVars <= maxPropUniqueVars,"good", "bad")
+	return table
+}
+my.custom.Genotypes <- callGenotypes(my.mlgt.Result, method="callGenotypes.custom")
 @
 
 \subsection{Miscellaneous}
