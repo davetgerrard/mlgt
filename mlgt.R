@@ -296,7 +296,7 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 #'
 #' @return A table of unique variants and their counts. The sequences have been trimmed to the portion aligned with \option{markerSeq}
 #'
-getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq,  maxVarsToAlign=30, minTotalCount=500)  {
+getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq,  maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE, correctThreshold=0.01)  {
 	if(exists("verbose")) cat("getSubSeqsTable",thisSample, thisMarker,"\n")
 	# check paths to auxillary programs
 	pathNames <- c("FASTACMD_PATH","MUSCLE_PATH")
@@ -372,25 +372,28 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	}
 	rawSeqCountTable <-  as.data.frame(table(unlist(rawSeqs)))
 	rawVariantCount <- nrow(rawSeqCountTable)
-	names(rawSeqCountTable) <- c("rawSeq", "rawCount")
-	rawSeqCountTable  <- rawSeqCountTable[order(rawSeqCountTable$rawCount, decreasing=T),]	# most abundant raw vars at top of list.
+	names(rawSeqCountTable) <- c("var", "count")
+	rawSeqCountTable  <- rawSeqCountTable[order(rawSeqCountTable$count, decreasing=T),]	# most abundant raw vars at top of list.
 
 	#minTotalCount <- ceiling(totalRaw * minPropReads)	# want to catch at least this many raw reads.
-	#enoughReadsIndex <- cumsum(rawSeqCountTable$rawCount)
+	#enoughReadsIndex <- cumsum(rawSeqCountTable$count)
 	useIndex <- min(maxVarsToAlign, nrow(rawSeqCountTable))
 	if(totalRaw > minTotalCount) {
 		#use only most abundant 30 (maxVarsToAlign) unique variants.
 		rawSeqCountTable <- rawSeqCountTable[1:useIndex,] 
 	} 
 
-	usedTotalRaw <- sum(rawSeqCountTable$rawCount)
+	usedTotalRaw <- sum(rawSeqCountTable$count)
+	usedVarCount <- nrow(rawSeqCountTable)
 	cat(paste(thisSample,": Using", nrow(rawSeqCountTable), "variants, acounting for", usedTotalRaw, "of", totalRaw, "reads\n"))
 
 	rawVariantFile <- paste("test", thisMarker, thisSample, "raw.variants.fasta",sep=".")  #"localVariants.fasta"
 	#rawVariantFile <- paste(runPath, rawVariantFileName, sep="/")
-	write.fasta(as.list(c(markerSeq,as.character(rawSeqCountTable$rawSeq))) ,c(thisMarker,as.character(rawSeqCountTable$rawSeq)),file=rawVariantFile ,open="w")
+	#v0.14# write.fasta(as.list(c(markerSeq,as.character(rawSeqCountTable$var))) ,c(thisMarker,as.character(rawSeqCountTable$var)),file=rawVariantFile ,open="w")	# align marker AND raw variants
+	write.fasta(as.list(as.character(rawSeqCountTable$var)) ,as.character(rawSeqCountTable$var),file=rawVariantFile ,open="w") 	# align just raw variants
 
-	# Align all seqs with reference
+
+	# Align all seqs
 	rawAlignFile <- paste("test", thisMarker, thisSample, "raw.align.fasta",sep=".")  #"localAlign.fasta"
 	#rawAlignFile <- paste(runPath, rawAlignFileName, sep="/")
 	##Removed for ver0.14 
@@ -403,9 +406,44 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	#cat(paste(muscleCommand, "\n"))
 	system(muscleCommand)
 
+	#v0.14# error Correct if required
+	if(errorCorrect)  {		
+			alignedVars <- read.fasta(rawAlignFile, as.string=T)
+			seqCounts <- rawSeqCountTable$count[match(names(alignedVars),rawSeqCountTable$var)]
+			#cat(seqCounts)
+			#TODO MUST: strip off aligned marker and add back on - do not want this to be 'corrected' to match all other seqs. 
+			#seqCounts <- varCountTable$count
+			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
+			sampleSeqs <- rep(alignedVars , seqCounts)
+			thisAlign <- as.alignment(sum(seqCounts), names(sampleSeqs), as.character(sampleSeqs))
+			if(exists("verbose")) cat(paste(length(unique(thisAlign$seq)),"/", thisAlign$nb,"unique seqs in original alignment, "))
 
-	# Extract portion corresponding to reference. 
+			newAlign <- errorCorrect.alignment(thisAlign, correctThreshold)
+			# need to repack this alignment
 
+			if(exists("verbose")) cat(paste(length(unique(newAlign$seq)),"/", newAlign$nb,"unique seqs in new alignment, "))
+			## DONE: repack the corrected alignment re-attribute the allele names. Update the markerSampleTable
+			newCountTable <-  as.data.frame(table(unlist(newAlign$seq)),stringsAsFactors=FALSE)
+
+			rawSeqCountTable <- data.frame(alignedVar=newCountTable$Var1, count=as.numeric(newCountTable$Freq),stringsAsFactors=FALSE)
+			rawSeqCountTable$var <- gsub("-","",rawSeqCountTable$alignedVar)
+			rawSeqCountTable <- rawSeqCountTable[order(rawSeqCountTable$count,decreasing=T),]
+			#cat(paste("rawSeqCountTable rows:", nrow(rawSeqCountTable), "\n"))
+			rawAlignFile.corrected <- paste("test", thisMarker, thisSample, "raw.align.corrected.fasta",sep=".")  #"localAlign.fasta"
+			#write.fasta(as.list(newAlign$seq), newAlign$nam, file=rawAlignFile.corrected )
+			write.fasta(as.list(rawSeqCountTable$alignedVar), rawSeqCountTable$var, file.out=rawAlignFile.corrected )
+			rawAlignFile <- rawAlignFile.corrected
+	}
+
+	#v0.14# Align marker sequence using profile alignment (not done as part of base alignment so that errorCorrect can be run on rawAlignment).
+	markerSeqFile <- paste(thisMarker, "markerSeq.fasta", sep=".")
+	write.fasta(markerSeq, thisMarker, file=markerSeqFile )
+	rawPlusMarkerFile <- paste("test", thisMarker, thisSample, "raw.marker.align.fasta",sep=".")  #"localAlign.fasta"
+	muscleCommand <- paste(musclePath, "-profile -quiet -in1", rawAlignFile , "-in2", markerSeqFile  ,  "-out", rawPlusMarkerFile  )
+	system(muscleCommand)
+
+	#v0.14# Extract portion corresponding to reference. 
+	rawAlignFile <- rawPlusMarkerFile 
 	rawAlignment <- read.fasta(rawAlignFile, as.string=T)		# do not use read.alignment() - broken
 	alignedMarkerSeq <- s2c(rawAlignment[[thisMarker]])
 	subStart <- min(grep("-",alignedMarkerSeq ,invert=T))
@@ -415,20 +453,22 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	#subAlignFile <- paste(runPath, subAlignFileName , sep="/")
 	write.fasta(alignedSubSeqs , names(alignedSubSeqs ), file=subAlignFile )
 
-	alignedSubTable <- data.frame(rawSeq =  names(alignedSubSeqs ) , subSeq= as.character(unlist(alignedSubSeqs )))
+	alignedSubTable <- data.frame(var =  names(alignedSubSeqs ) , subSeq= as.character(unlist(alignedSubSeqs )))
 
 	# Re-apply count of each seq.  There may be some duplicated subSeqs.
-	combTable <- merge(rawSeqCountTable ,alignedSubTable , by="rawSeq", all.x=T)
-	varCount <- by(combTable, as.character(combTable$subSeq), FUN=function(x) sum(x$rawCount))
+	combTable <- merge(rawSeqCountTable ,alignedSubTable , by="var", all.x=T)
+	varCount <- by(combTable, as.character(combTable$subSeq), FUN=function(x) sum(x$count))
 	varCountTable <- data.frame(alignedVar=names(varCount), count=as.numeric(varCount),stringsAsFactors=FALSE)	## added stringsAsFactors=FALSE to enable passing of aligned list
 	varCountTable$var <- gsub("-","",varCountTable$alignedVar)
 	varCountTable <- varCountTable[order(varCountTable$count,decreasing=T),]
 
 
+
+
 	thisVarCount <- new("varCount", rawTotal=totalRaw,
 			rawUniqueCount = rawVariantCount ,
 			usedRawTotal = usedTotalRaw,
-			usedRawUniqueCount = nrow(rawSeqCountTable),
+			usedRawUniqueCount = usedVarCount,
 			subAlignTotal = sum(varCountTable$count),
 			subAlignUniqueCount = nrow(varCountTable), 
 			varCountTable = varCountTable)
@@ -460,11 +500,11 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' @docType methods
 #' @rdname mlgt-methods
 #' @aliases mlgt.mlgtDesign
-mlgt <- function(designObject) attributes(designObject)
+mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01) attributes(designObject)
 setGeneric("mlgt")
 
 
-mlgt.mlgtDesign  <- function(designObject)  {
+mlgt.mlgtDesign  <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01)  {
 	topHits <- getTopBlastHits("blastOut.markers.tab")
 	topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
 	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
@@ -487,6 +527,8 @@ mlgt.mlgtDesign  <- function(designObject)  {
 	runSummaryTable <- data.frame()
 	alleleDb <- list()
 	varCountTableList <- list()
+
+	if(errorCorrect)  cat(paste("Using error correction at", correctThreshold, "\n"))
 
 	for(thisMarker in names(designObject@markers)) {
 	#for(thisMarker in names(markerMap)) {
@@ -547,7 +589,8 @@ mlgt.mlgtDesign  <- function(designObject)  {
 
 		## Ver. 0.14 - edited getSubSeqsTable to return object of class 'varCount' , which includes the required table.
 		# seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
-		thisVarCount <-  getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
+		thisVarCount <-  getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq, 
+					maxVarsToAlign=maxVarsToAlign, minTotalCount=minTotalCount, errorCorrect=errorCorrect, correctThreshold=correctThreshold)
 		seqTable <- thisVarCount@varCountTable		
 
 		#cat(paste("Raw total:",thisVarCount@rawTotal,"\n"))
@@ -651,7 +694,7 @@ mlgt.mlgtDesign  <- function(designObject)  {
 
 }  # end of mlgt function
 
-setMethod("mlgt","mlgtDesign", definition=mlgt.mlgtDesign)
+setMethod("mlgt",signature(designObject="mlgtDesign", maxVarsToAlign="ANY", minTotalCount="ANY", errorCorrect="ANY",correctThreshold="ANY"), definition=mlgt.mlgtDesign)
 
 #INTERNAL. Does this need documenting?
 # Create a local BLAST db 
@@ -1488,7 +1531,7 @@ stripGapColumns <- function(alignment)  {
 		return(alignment)
 	}
 	alignMatrix <- as.matrix(alignment)[,-c(gap_index)]
-	cat(paste("removed",length(gap_index),"gap columns "))
+	if(exists("verbose")) cat(paste("removed",length(gap_index),"gap columns "))
 	deGapSeqs <- apply(alignMatrix,1,c2s)
 	deGapAlign <- as.alignment(alignment$nb,alignment$nam,deGapSeqs)
 	return(deGapAlign)
@@ -1504,14 +1547,14 @@ errorCorrect.alignment <- function(alignment, correctThreshold=0.01)  {
 		warning(paste("No correction possible with depth of", alignment$nb, "and correction threshold of", correctThreshold, "\n"))
 		return(alignment)
 	}
-			thisProfile <- consensus(alignment, method="profile")
-			thisConsensus <- con(alignment, method="threshold", threshold=correctThreshold )
-			totalSeqs <- alignment$nb
-			totalLetters <- nrow(thisProfile)
-			mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
-			correct_index <- intersect(which(mafList < correctThreshold), which(mafList > 0))
-			#remove NAs from index.
-			correct_index <- correct_index[!is.na(thisConsensus[correct_index])]
+		thisProfile <- consensus(alignment, method="profile")
+		thisConsensus <- con(alignment, method="threshold", threshold=correctThreshold )
+		totalSeqs <- alignment$nb
+		totalLetters <- nrow(thisProfile)
+		mafList <- apply(thisProfile,  2, FUN=function(x) (sort(x)[totalLetters-1] / totalSeqs)) 
+		correct_index <- intersect(which(mafList < correctThreshold), which(mafList > 0))
+		#remove NAs from index.
+		correct_index <- correct_index[!is.na(thisConsensus[correct_index])]
 	
 		
 		alignment.matrix <- as.matrix.alignment(alignment)
