@@ -394,7 +394,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 
 	usedTotalRaw <- sum(rawSeqCountTable$count)
 	usedVarCount <- nrow(rawSeqCountTable)
-	cat(paste(thisSample,": Using", nrow(rawSeqCountTable), "variants, acounting for", usedTotalRaw, "of", totalRaw, "reads\n"))
+	cat(paste(thisSample,": Using", nrow(rawSeqCountTable), "variants, accounting for", usedTotalRaw, "of", totalRaw, "reads\n"))
 
 	rawVariantFile <- paste("test", thisMarker, thisSample, "raw.variants.fasta",sep=".")  #"localVariants.fasta"
 	#rawVariantFile <- paste(runPath, rawVariantFileName, sep="/")
