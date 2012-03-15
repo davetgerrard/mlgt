@@ -293,10 +293,14 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 #' @param fMarkerMap A list of sequence IDs assigned to each sample using BLAST hits in forward orientation. Each element named by sample name.
 #' @param rMarkerMap A list of sequence IDs assigned to each sample using BLAST hits in reverse orientation. Each element named by sample name.
 #' @param markerSeq The sequence of \option{thisMarker}
+#' @param maxVarsToAlign If total assigned sequences exceeds 'minTotalCount', then only the 'maxVarsToAlign' most abundant variants are used.
+#' @param minTotalCount How many assigned sequences to allow before limiting the number of raw variants to allign.
+#' @param errorCorrect Use error correection on alignment of raw variants
+#' @param correctThreshold Maximum proportion of raw reads at which (minor allele) bases and gaps are corrected.
 #'
 #' @return A table of unique variants and their counts. The sequences have been trimmed to the portion aligned with \option{markerSeq}
 #'
-getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq,  maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE, correctThreshold=0.01)  {
+getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarkerMap, markerSeq,  maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE, correctThreshold=0.01, minLength=70)  {
 	if(exists("verbose")) cat("getSubSeqsTable",thisSample, thisMarker,"\n")
 	# check paths to auxillary programs
 	pathNames <- c("FASTACMD_PATH","MUSCLE_PATH")
@@ -364,6 +368,11 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	# or 500 reads (minTotalCount), whichever is larger. 
 
 	rawSeqs <- c(fRawSeqs ,rRawSeqs )
+
+	# filter out sequences shorter than minLength. Value of 0 means no filter.
+	if(minLength > 0) rawSeqs <- rawSeqs[which(nchar(rawSeqs) > minLength)]
+
+
 	totalRaw <- length(rawSeqs)
 
 	if(totalRaw  < 1)  {
@@ -492,6 +501,10 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' Depends upon \code{\link{prepareMlgtRun}} having been run in the current directory to generate \option{designObject} of class \code{\link{mlgtDesign}}
 #' 
 #' @param designObject an object of class \code{\link{mlgtDesign}}
+#' @param maxVarsToAlign If total assigned sequences exceeds 'minTotalCount', then only the 'maxVarsToAlign' most abundant variants are used.
+#' @param minTotalCount How many assigned sequences to allow before limiting the number of raw variants to allign.
+#' @param errorCorrect Use error correection on alignment of raw variants
+#' @param correctThreshold Maximum proportion of raw reads at which (minor allele) bases and gaps are corrected.
 #'
 #' @return an object of class \code{\link{mlgtResult}} containing all variants and their counts, a summary table (all markers) and one summary table per marker.
 #' @seealso \code{\link{prepareMlgtRun}}
@@ -500,11 +513,11 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' @docType methods
 #' @rdname mlgt-methods
 #' @aliases mlgt.mlgtDesign
-mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01) attributes(designObject)
+mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70) attributes(designObject)
 setGeneric("mlgt")
 
 
-mlgt.mlgtDesign  <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01)  {
+mlgt.mlgtDesign  <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70)  {
 	topHits <- getTopBlastHits("blastOut.markers.tab")
 	topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
 	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
@@ -590,7 +603,8 @@ mlgt.mlgtDesign  <- function(designObject, maxVarsToAlign=30, minTotalCount=500,
 		## Ver. 0.14 - edited getSubSeqsTable to return object of class 'varCount' , which includes the required table.
 		# seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
 		thisVarCount <-  getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq, 
-					maxVarsToAlign=maxVarsToAlign, minTotalCount=minTotalCount, errorCorrect=errorCorrect, correctThreshold=correctThreshold)
+					maxVarsToAlign=maxVarsToAlign, minTotalCount=minTotalCount, errorCorrect=errorCorrect, 
+					correctThreshold=correctThreshold, minLength=minLength)
 		seqTable <- thisVarCount@varCountTable		
 
 		#cat(paste("Raw total:",thisVarCount@rawTotal,"\n"))
@@ -694,7 +708,7 @@ mlgt.mlgtDesign  <- function(designObject, maxVarsToAlign=30, minTotalCount=500,
 
 }  # end of mlgt function
 
-setMethod("mlgt",signature(designObject="mlgtDesign", maxVarsToAlign="ANY", minTotalCount="ANY", errorCorrect="ANY",correctThreshold="ANY"), definition=mlgt.mlgtDesign)
+setMethod("mlgt",signature(designObject="mlgtDesign", maxVarsToAlign="ANY", minTotalCount="ANY", errorCorrect="ANY",correctThreshold="ANY", minLength="ANY"), definition=mlgt.mlgtDesign)
 
 #INTERNAL. Does this need documenting?
 # Create a local BLAST db 
@@ -1527,7 +1541,7 @@ dumpVariantMap.mlgtResult <- function(resultObject, markers=names(resultObject@m
 stripGapColumns <- function(alignment)  {
 	gap_index <- which(con(alignment, method="threshold",threshold=(1-1e-07)) == '-')		# bug in seqinr: threshold =1 returns NA for all.
 	if(length(gap_index) < 1)  {	# nothing to strip
-		cat("No gap columns to remove ")
+		if(exists("verbose")) cat("No gap columns to remove ")
 		return(alignment)
 	}
 	alignMatrix <- as.matrix(alignment)[,-c(gap_index)]
