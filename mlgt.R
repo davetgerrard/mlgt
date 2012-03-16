@@ -130,6 +130,10 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	alignedSubTable <- subset(alignedSubTable, name != markerName)
 
 	alleleMap <- split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)
+	##alleleMap <- paste(unlist(split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)),collapse="|")
+	# TODO: THis next line is what I want to do but it makes BLASTALL crash. Something to do with long sequence IDs in fasta files?
+	#alleleMap <- lapply(alleleMap, FUN=function(x) paste(x,collapse=";"))	# do no use '|' or '*' or ':'
+
 	if(remTempFiles) {
 		file.remove(markerSeqFile)
 	}

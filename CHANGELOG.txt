@@ -12,6 +12,8 @@ Added 'filePrefix' parameter to writeGenotypeCallsToFile, allows users to distin
 
 Reworked callGenotypes() to allow user specification of custom methods. The previous default method callGenotypes.table() is now not aliased and is named callGenotypes.default(). Removed setGeneric call for callGenotypes() as there is now only one primary method.
 
+Altered callGenotypes.default() to also check that the third most abundant variant account for  less than 10% of used sequences.
+
 Reworked getSubseqsTable to use maxVarsToAlign=30 most common variants only when greater than a threshold (minTotalCount=500 ) number of raw sequences. This function now also returns an object of class 'varCount' which includes the table of variants as well as summary counts of variants and total reads. The result sub.alignments contain fewer raw variants and are much tidier. Updated mlgt() to accept the new varCount object and added new statistics as new columns in the table that appears in markerSampleList.
 
 Reworked mlgt()/getSubseqsTable() to include errorCorrection.
