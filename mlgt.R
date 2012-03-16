@@ -1041,11 +1041,12 @@ makeBigParamList <- function(..., markerCount)  {
 #' @param minTotalReads Minimum number of reads before attempting to call genotypes
 #' @param minDiffToVarThree Difference between sum of counts of top two variants and the count of the third most frequent variant, expressed as proportion of total. 
 #' @param minPropDiffHomHetThreshold Difference between counts of top two variants. One way to distinguish HOMOZYGOTES and HETEROZYGOTES.
+#' @param maxPropVarThree Also call as 'complexVars' if the third variant accounts for more than this proportion of used reads (default=0.1)
 #' @return A data.frame identical to those in markerSampleList but with additional columns giving parameter values, 
 #' and a 'status' column giving the genotype status.
 callGenotypes.default <- function(table,  minTotalReads=50, maxPropUniqueVars=0.8, 
 					minPropToCall=0.1, minDiffToVarThree=0.4,
-					minPropDiffHomHetThreshold=0.3) {
+					minPropDiffHomHetThreshold=0.3, maxPropVarThree=0.1) {
 	
 	#table$genotype
 	table$status <- "notCalled"
@@ -1056,7 +1057,8 @@ callGenotypes.default <- function(table,  minTotalReads=50, maxPropUniqueVars=0.
 	# > 0.5 is good. <0.3 not good. 0.4 as cut-off for now? 
 	table$diffToVarThree <- with(table, ((varFreq.1+varFreq.2)-varFreq.3)/numbSeqs)
 
-	distinctVars <- 	with(table, diffToVarThree  >= minDiffToVarThree)
+	#distinctVars <- 	with(table, diffToVarThree  >= minDiffToVarThree)
+	distinctVars <- with(table, (diffToVarThree  >= minDiffToVarThree)  & propThree < maxPropVarThree)
 	table$status[enoughReads & !distinctVars] <- "complexVars"
 
 	# difference between var 1 and var2 as proportion of total
