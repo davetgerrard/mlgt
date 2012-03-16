@@ -114,8 +114,6 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	muscleCommand <- paste(musclePath, "-quiet -profile -in1", alignedAlleleFastaFile, "-in2", markerSeqFile, "-out" ,markerToAlleleDbAlign )
 	system(muscleCommand)
 
-
-
 	### this section copied from getSubSeqsTable()  Could be recoded as function?
 
 	# Extract portion corresponding to reference. 
@@ -488,6 +486,10 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	return(thisVarCount)
 
 }
+
+
+
+
 
 
 
@@ -1022,6 +1024,52 @@ makeBigParamList <- function(..., markerCount)  {
 }
 
 
+# Used for approximate (BLAST) variant to allele matching.
+# returns a standard blast table with single best hit per query.
+makeVarAlleleBlastMap <- function(allele.variantMap, variant.variantMap)  {
+	pathNames <- c("BLASTALL_PATH","FORMATDB_PATH","FASTACMD_PATH","MUSCLE_PATH")
+	for(thisPath in pathNames)  {
+		if(nchar(Sys.getenv(thisPath)) < 1) {
+			stop(paste(thisPath,"has not been set!"))
+		}
+		# shellQuote any paths containing spaces.
+		# Can't use variables in Sys.setenv
+		#if(length(grep(" ",Sys.getenv(thisPath), fixed=T))  > 0 )  Sys.setenv(thisPath= shQuote(thisPath))
+	}
+
+	formatdbPath <- Sys.getenv("FORMATDB_PATH")
+	fastacmdPath <- Sys.getenv("FASTACMD_PATH")
+	blastAllPath <- Sys.getenv("BLASTALL_PATH")
+
+	# shellQuote any paths containing spaces.
+	if(length(grep(" ",formatdbPath, fixed=T))  > 0 ) formatdbPath <- shQuote(formatdbPath)
+	if(length(grep(" ",fastacmdPath, fixed=T))  > 0 ) fastacmdPath <- shQuote(fastacmdPath)
+	if(length(grep(" ",blastAllPath, fixed=T))  > 0 ) blastAllPath <- shQuote(blastAllPath)
+
+	thisMarker <-  getName(allele.variantMap@reference)
+	cat(thisMarker)
+	#export known variants to fasta (may need to sort out names)
+	knownAsFastaFile <- paste(thisMarker, "knownAlleles.fasta", sep=".")	
+	# some sub-alleles may have zero length (they didn't align at all with marker)
+	thisVariantMap <- allele.variantMap@variantMap
+	thisVariantMap <- thisVariantMap[nchar(names(thisVariantMap)) > 0]
+	write.fasta(as.list(names(thisVariantMap)),as.character(thisVariantMap), file.out=knownAsFastaFile )
+	#create blast DB of known variants.
+	dbName <- paste(thisMarker,"knownAlleles",sep=".")
+	setUpBlastDb(knownAsFastaFile , formatdbPath, blastdbName=dbName )
+	#export new variants to fasta
+	newVarsAsFastaFile <- paste(thisMarker, "newVars.fasta", sep=".")
+	write.fasta(as.list(names(variant.variantMap@variantMap)),as.character(variant.variantMap@variantMap), file.out=newVarsAsFastaFile )
+	#blast new variants against known DB
+	newVarBlastResultFile <- paste(thisMarker, "blastOut.newVars.tab", sep=".")
+	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", newVarsAsFastaFile , "-W", 11 , "-m 8 -b 1 -o", newVarBlastResultFile)
+	system(blastCommand)
+	#open and retrieve the results.
+	topHits <- getTopBlastHits(newVarBlastResultFile)
+	#return as a useful lookuptable
+}
+
+
 ## call genotypes on a table of variant counts. Can select specific markers/samples to return. 
 #' Default internal methods for \code{\link{callGenotypes}} 
 #'
@@ -1056,6 +1104,7 @@ callGenotypes.default <- function(table,  minTotalReads=50, maxPropUniqueVars=0.
 	# difference between sum of vars 1 + 2 and var 3, as proportion of total
 	# > 0.5 is good. <0.3 not good. 0.4 as cut-off for now? 
 	table$diffToVarThree <- with(table, ((varFreq.1+varFreq.2)-varFreq.3)/numbSeqs)
+	table$propThree <- with(table, (varFreq.3)/numbSeqs)
 
 	#distinctVars <- 	with(table, diffToVarThree  >= minDiffToVarThree)
 	distinctVars <- with(table, (diffToVarThree  >= minDiffToVarThree)  & propThree < maxPropVarThree)
@@ -1118,6 +1167,7 @@ callGenotypes.custom <- function(table) {
 #' @param markerList For which of the markers do you want to call genotypes (default is all)?
 #' @param sampleList For which of the samples do you want to call genotypes (default is all)?
 #' @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
+#' @param perfectMatchOnly Only perfect allele matches are reported. If FALSE, a BLAST search is also performed to find matches.
 #'
 #' @return list of call results including the call parameters and a table of calls (class \code{\link{genotypeCall}}). If an mlgtResult object was supplied then a list of \code{\link{genotypeCall}} objects will be returned, each named by marker.
 #'
@@ -1126,7 +1176,7 @@ callGenotypes.custom <- function(table) {
 #' @aliases callGenotypes.mlgtResult
 callGenotypes <- function(resultObject,  method="callGenotypes.default",  
 					markerList=names(resultObject@markers),
-					sampleList=resultObject@samples, mapAlleles=FALSE, alleleDb=NULL, ...	) {
+					sampleList=resultObject@samples, mapAlleles=FALSE, alleleDb=NULL, approxMatching=FALSE, ...	) {
 
 	## FM requested marker specific parameters.
 	## test for vectors in any of the calling parameters. 	
@@ -1166,6 +1216,11 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 				#genotypeTable <- rbind(genotypeTable , subGenoTable)
 
 				if(mapAlleles) {
+					# 2-step strategy. 
+					# 1. Try perfect matching first. Quick and perfect.
+					# Keep track of which alleles were matched this way
+					# 2. Match with BLAST (build blast DB of known alleles and blast all new variants (once) against this.
+					# Record best hit and quality of best hit (percentID, percentlength)
 					if(is.null(alleleDb)) {
 						warning("No alleleDb specified\n")
 					}	else {
@@ -1183,8 +1238,16 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 								varAlleleMap <- makeVarAlleleMap(allele.variantMap=alleleDb[[thisMarker]], variant.variantMap=resultObject@alleleDb[[thisMarker]])
 								genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
 								genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
+
+								if(approxMatching) {	# perform approx matching by BLAST
+									cat("Attempting to find approximate matches using BLAST\n")
+									varAlleleBlastMap <- makeVarAlleleBlastMap(allele.variantMap=alleleDb[[thisMarker]], variant.variantMap=resultObject@alleleDb[[thisMarker]])
+									genotypeTable$allele.1.approx <- varAlleleBlastMap$subject[match(genotypeTable$varName.1, varAlleleBlastMap$query)]
+									genotypeTable$allele.2.approx <- varAlleleBlastMap$subject[match(genotypeTable$varName.2, varAlleleBlastMap$query)]
+								}
 							}
 						}
+
 					}
 				}
 				callResults[[thisMarker]] <- new("genotypeCall", 
