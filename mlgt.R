@@ -182,32 +182,6 @@ setClass("mlgtDesign",
 )
 
 
-
-#setMethod("print", "mlgtDesign", definition= function(x, ...){
-#	cat("Design for mlgt run:\n")
-#	cat(paste("Project:",x@projectName,"\n"))
-#	cat(paste("Run:",x@runName,"\n"))
-#	cat(paste("Samples:",length(x@samples),"\n"))
-#	cat(paste("fTags:",length(x@fTags),"\n"))
-#	cat(paste("rTags:",length(x@rTags),"\n"))
-#	cat(paste("Markers:",length(x@markers),"\n"))
-#	#cat(paste(x[1:5]), "...\n")
-#	}
-#)
-
-
-#setMethod("print", "mlgtResult", definition= function(x, ...){
-#	cat("Design for mlgt run:\n")
-#	cat(paste("Project:",x@projectName,"\n"))
-#	cat(paste("Run:",x@runName,"\n"))
-#	cat(paste("Samples:",length(x@samples),"\n"))
-#	cat(paste("fTags:",length(x@fTags),"\n"))
-#	cat(paste("rTags:",length(x@rTags),"\n"))
-#	cat(paste("Markers:",length(x@markers),"\n"))
-#	#cat(paste(x[1:5]), "...\n")
-#	}
-#)
-
 setMethod("show", "mlgtDesign", definition= function(object="mlgtDesign"){
 	cat("Design for mlgt run:\n")
 	cat(paste("Project:",object@projectName,"\n"))
