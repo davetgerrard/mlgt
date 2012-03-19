@@ -85,7 +85,7 @@ setClass("varCount",
 #'
 #' @export
 #' @docType methods
-createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alignFormat="msf", sourceName=alignedAlleleFile, remTempFiles=TRUE)  {
+createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alignFormat="msf", sourceName=alignedAlleleFile, userAlignment=FALSE)  {
 	## The aligned alleles must have unique names and the markerName must be different too. TODO: test for this.
 	## TODO put default input file format (MSF). Make check for fasta format (can skip first part if already fasta).
 	## clean up (remove) files. This function probably doesn't need to keep any files
@@ -105,14 +105,21 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 			},
 		stop("Unrecognised alignment file format\n")
 	)
-	
-	markerSeqFile <- paste(markerName, "markerSeq.fasta", sep=".")
-	write.fasta(markerSeq, markerName, file=markerSeqFile )
-	#muscle -profile -in1 existing_aln.afa -in2 new_seq.fa -out combined.afa
-	markerToAlleleDbAlign <- paste(markerName, "allignedToAlleles.fasta", sep=".")
-	# profile alignment of marker to existing allele alignment
-	muscleCommand <- paste(musclePath, "-quiet -profile -in1", alignedAlleleFastaFile, "-in2", markerSeqFile, "-out" ,markerToAlleleDbAlign )
-	system(muscleCommand)
+
+	if(userAlignment) {	# user supplied alignment
+
+		markerToAlleleDbAlign <- alignedAlleleFastaFile
+	} else {	# align the marker to the aligned alleles.
+			
+		markerSeqFile <- paste(markerName, "markerSeq.fasta", sep=".")
+		write.fasta(markerSeq, markerName, file=markerSeqFile )
+		#muscle -profile -in1 existing_aln.afa -in2 new_seq.fa -out combined.afa
+		markerToAlleleDbAlign <- paste(markerName, "allignedToAlleles.fasta", sep=".")
+		# profile alignment of marker to existing allele alignment
+		muscleCommand <- paste(musclePath, "-quiet -profile -in1", alignedAlleleFastaFile, "-in2", markerSeqFile, "-out" ,markerToAlleleDbAlign )
+		system(muscleCommand)
+
+	}
 
 	### this section copied from getSubSeqsTable()  Could be recoded as function?
 
@@ -138,9 +145,9 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	# TODO: THis next line is what I want to do but it makes BLASTALL crash. Something to do with long sequence IDs in fasta files?
 	alleleMap <- lapply(alleleMap, FUN=function(x) paste(x,collapse="_"))	# do not use '|' or '*' or ':'
 
-	if(remTempFiles) {
-		file.remove(markerSeqFile)
-	}
+	#if(remTempFiles) {
+	#	file.remove(markerSeqFile)
+	#}
 	#return(list(reference=as.SeqFastadna(markerSeq, markerName), alleleMap=alleleMap, inputAlleleCount = length(unlist(alleleMap)), uniqueSubAlleleCount=length(alleleMap)))
 	return(new("variantMap", reference=as.SeqFastadna(markerSeq, markerName), variantSource=sourceName, variantMap=alleleMap, inputVariantCount = length(unlist(alleleMap)), uniqueSubVariantCount=length(alleleMap)))
 }
