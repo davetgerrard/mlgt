@@ -256,7 +256,7 @@ setMethod("show", "mlgtResult", definition= function(object="mlgtResult"){
 #'
 #' Auxillary function
 #'
-#' @param The name of a file of tabulated blast results.
+#' @param blastTableFile The name of a file of tabulated blast results.
 #' @return A reduced blast table with one hit per query
 #' @export
 getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each query in the table. May now be partially redundant if selecting for number of blast hits returned..
@@ -490,11 +490,15 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' 
 #' \code{mlgt} Works through all pairs of markers and samples. Aligns variants and trims aligned variants to the marker sequence. Potential 'alleles' are assigned from the most common variants within each sample.
 #'
-#' Depends upon \code{\link{prepareMlgtRun}} having been run in the current directory to generate \option{designObject} of class \code{\link{mlgtDesign}}
+#' Depends upon \code{\link{prepareMlgtRun}} having been run in the current directory to generate \option{designObject} of class \code{\link{mlgtDesign}}. 
+#' The basic process for each marker/sample pair is to align all unique variants using MUSCLE and then extract the alignment portion aligned to the reference marker sequence, ignoring the rest.
+#' The marker alignment is critical and \code{\link{mlgt}} has several options to optimise this alignment.
+#' If the total number of reads is less than minTotalCount, then all variants are aligned. Otherwise, only the most abundant 30 unique variants are aligned.
+#' Optionally, alignments are `error-correted' as per the separate function \code{\link{errorCorrect}}
 #' 
 #' @param designObject an object of class \code{\link{mlgtDesign}}
-#' @param maxVarsToAlign If total assigned sequences exceeds 'minTotalCount', then only the 'maxVarsToAlign' most abundant variants are used.
 #' @param minTotalCount How many assigned sequences to allow before limiting the number of raw variants to allign.
+#' @param maxVarsToAlign If total assigned sequences exceeds 'minTotalCount', then only the 'maxVarsToAlign' most abundant variants are used.
 #' @param errorCorrect Use error correection on alignment of raw variants
 #' @param correctThreshold Maximum proportion of raw reads at which (minor allele) bases and gaps are corrected.
 #'
@@ -1070,7 +1074,7 @@ makeVarAlleleBlastMap <- function(allele.variantMap, variant.variantMap)  {
 #' 	\item{`callGenotypes.default'}{Three sequential steps for each marker/sample pair: 
 #' 		\enumerate{
 #'			\item {if the number of reads is less than \code{minTotalReads} the genotype is \emph{`tooFewReads'} }
-#'			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, then the genotype is \emph{`complexVars'}}
+#'			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, OR the third most abundant variant accounts for more than maxPropVarThree (default=0.1) of the reads, then the genotype is \emph{`complexVars'}}
 #'			\item {if the difference between the counts of top two variants, expressed as a proportion of the total, is greater than or equal to \code{minPropDiffHomHetThreshold}, then the genotype is \emph{HOMOZYGOTE}. Otherwise it is \emph{HETEROZYGOTE}. }  
 #'		}
 #' 	}
@@ -1136,17 +1140,8 @@ callGenotypes.custom <- function(table) {
 #'
 #' After \code{\link{mlgt}} has generated tables of the most common variants assigned in each marker/sample pair, an attempt can be made to call genotypes.
 #' This is kept separate because users might want to try different calling methods and have the option to map to a known set of alleles. Currently, only 
-#' one method is implemented (\emph{`custom'}).
-#' Methods:-
-#' \describe{
-#' 	\item{`callGenotypes.default'}{Three sequential steps for each marker/sample pair: 
-#' 		\enumerate{
-#'			\item {if the number of reads is less than \code{minTotalReads} the genotype is \emph{`tooFewReads'} }
-#'			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, then the genotype is \emph{`complexVars'}}
-#'			\item {if the difference between the counts of top two variants, expressed as a proportion of the total, is greater than or equal to \code{minPropDiffHomHetThreshold}, then the genotype is \emph{HOMOZYGOTE}. Otherwise it is \emph{HETEROZYGOTE}. }  
-#'		}
-#' 	}
-#' }
+#' one method is implemented (\emph{`custom'}). See \code{\link{callGenotypes.default}}.
+#' This function also includes the option to map variants to a list of known alleles created using \code{\link{createKnownAlleleList}}. The basic method makes only perfect matches but a secondary method can be triggered (approxMatching=TRUE) to find the allele with the greatest similarity using a local BLAST search.
 #' 
 #' 
 #' @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
@@ -1158,7 +1153,8 @@ callGenotypes.custom <- function(table) {
 #' @param markerList For which of the markers do you want to call genotypes (default is all)?
 #' @param sampleList For which of the samples do you want to call genotypes (default is all)?
 #' @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
-#' @param perfectMatchOnly Only perfect allele matches are reported. If FALSE, a BLAST search is also performed to find matches.
+#' @param approxMatching If TRUE, a BLAST search is also performed to find matches (slower). Additional columns are added to the genoytpeTable
+#' @param ... Other parameter values will be passed to custom methods such as \code{\link{callGenotypes.default}}
 #'
 #' @return list of call results including the call parameters and a table of calls (class \code{\link{genotypeCall}}). If an mlgtResult object was supplied then a list of \code{\link{genotypeCall}} objects will be returned, each named by marker.
 #'
@@ -1825,7 +1821,7 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 #' 
 #' You may want to alter some of the sequences if you believe that sequences at very low frequency 
 #' (within the set of sequences from a marker/sample pair) represent sequencing errors.
-#' Currently this is implemented as an additional step after running \code{\link{mlgt}}.
+#' \code{errorCorrect()} is implemented as an additional step after running \code{\link{mlgt}}, however, it is recommended to include error correction within \code{\link{mlgt}} using the errorCorrect=TRUE option.
 #' Using \code{\link{alignReport}} beforehand may help you decide whether to do this. 
 #' 
 #' @param mlgtResultObject An object of class \code{\link{mlgtResult}}
@@ -2191,7 +2187,7 @@ mergeMlgtResults.simple <- function(result1, result2) {
 #'
 #' @param resultList A list of objects of class \code{\link{mlgtResult}}
 #' @param projectName Do you want to provide your own projectName
-#' @param runName Do you want to provid your own runName
+#' @param runName Do you want to provide your own runName
 #' 
 #' @value An object of class \code{\link{mlgtResult}}
 #' @export

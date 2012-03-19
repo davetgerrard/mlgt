@@ -4,7 +4,7 @@ library(roxygen2)
 setwd("C:/Users/dave/HalfStarted/mlgt/testRoxygen")
 
 # Set the correct dates in mlgt.R and DESCRIPTION
-#package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
+# NO # package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
 #Update DESCRIPTION FILE for VERSION
 # delete contents of /man 
 # copy latest .R code to /R
@@ -13,10 +13,9 @@ roxygenize("mlgt", unlink.target=T)
 
 #edit the namespace. Remove "import(seqinr)"
 
+# In DOS, from same directory (/testRoxygen)
 #R CMD INSTALL --build mlgt	# to get windows zip
-
 #R CMD build mlgt	# to get tar.gz
-
 # R CMD check mlgt
 
 
