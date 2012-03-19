@@ -3,8 +3,8 @@
 #' \tabular{ll}{
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
-#' Version: \tab 0.13\cr
-#' Date: \tab 2012-02-25\cr
+#' Version: \tab 0.14\cr
+#' Date: \tab 2012-03-20\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
@@ -72,6 +72,7 @@ setClass("varCount",
 #' The resulting sub-sequence alignment may have identical sequences for different 
 #' alleles. If that happens, those alleles are condensed into one and their names
 #' concatenated.
+#' User can supply files with marker sequences pre-aligned to the reference alleles. 
 #' 
 #' @param markerName 
 #' @param markerSeq something
@@ -79,7 +80,7 @@ setClass("varCount",
 #' @param alignFormat the format of alignedAlleleFile. "msf" (the default) or "fasta"
 #' @param sourceName A character string to record the source of the alignment. Defaults to 
 #'  the value of alignedAlleleFile
-#' @param remTempFiles Boolean. Whether to clean up temporary alignment files. Default = TRUE
+#' @param userAlignment The specified 'alignedAlleleFile' already includes the marker sequence. Default = FALSE.
 #' 
 #' @return a \code{\link{variantMap}} object named by markerName
 #'
