@@ -128,11 +128,15 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	alignedSubTable$subSeq.stripped <-  gsub("-", "",alignedSubTable$subSeq.aligned )
 	# remove marker sequence from allele subalignment list.
 	alignedSubTable <- subset(alignedSubTable, name != markerName)
-
-	alleleMap <- split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)
+	# TODO: 2 issues here. 1. concatentated allele name lists get truncated at 500 chars (probably by newline insertion).
+	# 2. blast is not returning the full name. 
+	# HLA_A2 central region has 213 alleles all identical. The concatentated sequence IDs are 2030 chars long.
+	# Could try using an '_' as this might prevent word boundary splitting in one or both cases.
+	# Solves the first problem but still cannot blast with this. Need to also adjust blast usage.
+	alleleMap <- split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)	# group allele nams sharing a common sequence.
 	##alleleMap <- paste(unlist(split(as.character(alignedSubTable$name), alignedSubTable$subSeq.stripped)),collapse="|")
 	# TODO: THis next line is what I want to do but it makes BLASTALL crash. Something to do with long sequence IDs in fasta files?
-	#alleleMap <- lapply(alleleMap, FUN=function(x) paste(x,collapse=";"))	# do no use '|' or '*' or ':'
+	alleleMap <- lapply(alleleMap, FUN=function(x) paste(x,collapse="_"))	# do not use '|' or '*' or ':'
 
 	if(remTempFiles) {
 		file.remove(markerSeqFile)
@@ -1031,7 +1035,8 @@ makeVarAlleleBlastMap <- function(allele.variantMap, variant.variantMap)  {
 	# some sub-alleles may have zero length (they didn't align at all with marker)
 	thisVariantMap <- allele.variantMap@variantMap
 	thisVariantMap <- thisVariantMap[nchar(names(thisVariantMap)) > 0]
-	write.fasta(as.list(names(thisVariantMap)),as.character(thisVariantMap), file.out=knownAsFastaFile )
+	#write the known alleles to a fasta file. The concatentated names must be truncated to XX chars for blast to run.
+	write.fasta(as.list(names(thisVariantMap)),substring(as.character(thisVariantMap),1,60), file.out=knownAsFastaFile )
 	#create blast DB of known variants.
 	dbName <- paste(thisMarker,"knownAlleles",sep=".")
 	setUpBlastDb(knownAsFastaFile , formatdbPath, blastdbName=dbName )
