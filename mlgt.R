@@ -1455,9 +1455,11 @@ printBlastResultGraphs <- function(designObject, markerList=designObject@markers
 plotGenotypeEvidence.genotypeCall <- function(genotypeCall)  {
 	genotypeTable <- genotypeCall@genotypeTable
 	thisMarker	<- genotypeCall@marker
-	minTotalReads <- genotypeCall@callParameters['minTotalReads']
-	minDiffToVarThree <- genotypeCall@callParameters['minDiffToVarThree']
-	minPropDiffHomHetThreshold <- genotypeCall@callParameters['minPropDiffHomHetThreshold']
+	# next three lines are a temp fix to retrieve default call parameters, which are not retained by callGenotypes.default(). May remove this function anyway.
+	minTotalReads <- ifelse(exists("genotypeCall@callParameters[['minTotalReads']]"),genotypeCall@callParameters['minTotalReads'],50)
+	minDiffToVarThree <- ifelse(exists("genotypeCall@callParameters[['minDiffToVarThree']]"),genotypeCall@callParameters['minDiffToVarThree'],0.4)
+	minPropDiffHomHetThreshold <- ifelse(exists("genotypeCall@callParameters[['minPropDiffHomHetThreshold']]"),genotypeCall@callParameters['minPropDiffHomHetThreshold'],0.3)
+
 
 	if(sum(genotypeTable$numbSeqs) < 1)  {
 		warning(paste("No seqs to plot for",thisMarker), call.=F)
