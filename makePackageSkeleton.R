@@ -25,9 +25,12 @@ roxygenize("mlgt", unlink.target=T)
 ###Generate the README 
 
 setwd("C:/Users/dave/HalfStarted/mlgt/testREADME")
-Sweave("../mlgt_README")	# from sub-directory up to main mlgt directory
+#Sweave("../mlgt_README")	# from sub-directory up to main mlgt directory
 #R CMD texify --pdf mlgt_README.tex
 Stangle("../mlgt_README")
+Sweave("../mlgt_README_0.15")	# from sub-directory up to main mlgt directory
+#R CMD texify --pdf mlgt_README_0.15.tex
+Stangle("../mlgt_README_0.15")
 
 
 

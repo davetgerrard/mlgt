@@ -3,8 +3,8 @@
 #' \tabular{ll}{
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
-#' Version: \tab 0.14\cr
-#' Date: \tab 2012-03-20\cr
+#' Version: \tab 0.15\cr
+#' Date: \tab 2012-04-01\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
@@ -74,7 +74,7 @@ setClass("varCount",
 #' concatenated.
 #' User can supply files with marker sequences pre-aligned to the reference alleles. 
 #' 
-#' @param markerName 
+#' @param markerName A specific marker name
 #' @param markerSeq something
 #' @param alignedAlleleFile a sequence alignment 
 #' @param alignFormat the format of alignedAlleleFile. "msf" (the default) or "fasta"
@@ -127,12 +127,13 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	# Extract portion corresponding to reference. 
 
 	rawAlignment <- read.fasta(markerToAlleleDbAlign , as.string=T)		# do not use read.alignment() - broken
-	alignedMarkerSeq <- s2c(rawAlignment[[thisMarker]])
+	alignedMarkerSeq <- s2c(rawAlignment[[markerName]])
+	#alignedMarkerSeq <- s2c(rawAlignment[[thisMarker]])	# was this a bug?
 	subStart <- min(grep("-",alignedMarkerSeq ,invert=T))
 	subEnd <- max(grep("-",alignedMarkerSeq ,invert=T))
 	alignedSubSeqs <- lapply(rawAlignment, FUN=function(x)	substr(x[1], subStart, subEnd))
 
-	alignedSubTable <- data.frame(name =  names(alignedSubSeqs ) , subSeq.aligned= as.character(unlist(alignedSubSeqs )))
+	alignedSubTable <- data.frame(name=names(alignedSubSeqs ) , subSeq.aligned= as.character(unlist(alignedSubSeqs )))
 	alignedSubTable$subSeq.stripped <-  gsub("-", "",alignedSubTable$subSeq.aligned )
 	# remove marker sequence from allele subalignment list.
 	alignedSubTable <- subset(alignedSubTable, name != markerName)
@@ -275,8 +276,8 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 #'
 #' This internal function is called by \code{\link{mlgt}}
 #' 
-#' @param thisMarker
-#' @param thisSample
+#' @param thisMarker A specific marker name
+#' @param thisSample A specific sample name
 #' @param sampleMap A list of sequence IDs assigned to each marker. Each element named by marker name.
 #' @param fMarkerMap A list of sequence IDs assigned to each sample using BLAST hits in forward orientation. Each element named by sample name.
 #' @param rMarkerMap A list of sequence IDs assigned to each sample using BLAST hits in reverse orientation. Each element named by sample name.
@@ -285,6 +286,7 @@ getTopBlastHits <- function(blastTableFile)  {		# returns the first hit for each
 #' @param minTotalCount How many assigned sequences to allow before limiting the number of raw variants to allign.
 #' @param errorCorrect Use error correection on alignment of raw variants
 #' @param correctThreshold Maximum proportion of raw reads at which (minor allele) bases and gaps are corrected.
+#' @param minLength Reads below this length are excluded (they are very likely to be primer-dimers).
 #'
 #' @return A table of unique variants and their counts. The sequences have been trimmed to the portion aligned with \option{markerSeq}
 #'
@@ -501,6 +503,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' @param maxVarsToAlign If total assigned sequences exceeds 'minTotalCount', then only the 'maxVarsToAlign' most abundant variants are used.
 #' @param errorCorrect Use error correection on alignment of raw variants
 #' @param correctThreshold Maximum proportion of raw reads at which (minor allele) bases and gaps are corrected.
+#' @param minLength Reads below this length are excluded (they are very likely to be primer-dimers).
 #'
 #' @return an object of class \code{\link{mlgtResult}} containing all variants and their counts, a summary table (all markers) and one summary table per marker.
 #' @seealso \code{\link{prepareMlgtRun}}
@@ -513,7 +516,7 @@ mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrec
 setGeneric("mlgt")
 
 
-mlgt.mlgtDesign  <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70)  {
+mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70)  {
 	topHits <- getTopBlastHits("blastOut.markers.tab")
 	topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
 	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
@@ -756,6 +759,7 @@ copyIfSpaces <- function(pathString)  {
 #' Once \code{prepareMlgtRun} has been run,  \code{\link{mlgt}} can be run aswell as 
 #' \code{\link{printBlastResultGraphs}} and \code{\link{inspectBlastResults}}.
 #' 
+#' @param designObject Only used internally.
 #' @param projectName In which project does this run belong
 #' @param runName Which run was this. An identifier for the sequnece run
 #' @param markers	A \emph{list} of named sequences. 
@@ -1080,15 +1084,14 @@ makeVarAlleleBlastMap <- function(allele.variantMap, variant.variantMap)  {
 #' 	}
 #' }
 #'
-#' @parma table The table of sequence counts as in the markerSampleTable of an mlgtResult object.
+#' @param table The table of sequence counts as in the markerSampleTable of an mlgtResult object.
 #' @param minTotalReads Minimum number of reads before attempting to call genotypes
 #' @param minDiffToVarThree Difference between sum of counts of top two variants and the count of the third most frequent variant, expressed as proportion of total. 
 #' @param minPropDiffHomHetThreshold Difference between counts of top two variants. One way to distinguish HOMOZYGOTES and HETEROZYGOTES.
 #' @param maxPropVarThree Also call as 'complexVars' if the third variant accounts for more than this proportion of used reads (default=0.1)
 #' @return A data.frame identical to those in markerSampleList but with additional columns giving parameter values, 
 #' and a 'status' column giving the genotype status.
-callGenotypes.default <- function(table,  minTotalReads=50, maxPropUniqueVars=0.8, 
-					minPropToCall=0.1, minDiffToVarThree=0.4,
+callGenotypes.default <- function(table,  minTotalReads=50, minDiffToVarThree=0.4,
 					minPropDiffHomHetThreshold=0.3, maxPropVarThree=0.1) {
 	
 	#table$genotype
@@ -1145,7 +1148,6 @@ callGenotypes.custom <- function(table) {
 #' 
 #' 
 #' @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
-#' @param table [Separate usage] A table of variant counts. 
 #' @param alleleDb A list of \code{\link{variantMap}} objects derived from known alleles. As made by 
 #' \code{\link{createKnownAlleleList}}
 #' @param method How to call genotypes. Currently only "callGenotypes.default" is implemented. Users can define
@@ -1161,6 +1163,20 @@ callGenotypes.custom <- function(table) {
 #' @export
 #' @docType methods
 #' @aliases callGenotypes.mlgtResult
+#' @examples \dontrun{ 
+#' data("mlgtResult", package="mlgt")
+#' my.mlgt.Result
+#' # the default method
+#' my.genoytpes <- callGenotypes(my.mlgt.Result)
+#' # using a custom method
+#' callGenotypes.custom <- function(table, maxPropUniqueVars=0.5) {
+#' 	table$status <- "notCalled"
+#' 	table$propUniqueVars <- table$numbVar/table$numbSeq
+#' 	table$status <- ifelse(table$propUniqueVars <= maxPropUniqueVars,"good", "bad")
+#' 	return(table)
+#' }
+#' my.custom.Genotypes <- callGenotypes(my.mlgt.Result, method="callGenotypes.custom")
+#' }
 callGenotypes <- function(resultObject,  method="callGenotypes.default",  
 					markerList=names(resultObject@markers),
 					sampleList=resultObject@samples, mapAlleles=FALSE, alleleDb=NULL, approxMatching=FALSE, ...	) {
@@ -1215,11 +1231,19 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 							warning(paste("No known alleles for",thisMarker))
 							genotypeTable$allele.1 <- "noKnownAlleles"
 							genotypeTable$allele.2 <- "noKnownAlleles"
+							if(approxMatching) {	# need to match column names
+								genotypeTable$allele.1.approx <- NA
+								genotypeTable$allele.2.approx <- NA
+							}
 						} else  {
 							if(is.null(resultObject@alleleDb[[thisMarker]])) {
 								warning(paste("No variants for",thisMarker))
 								genotypeTable$allele.1 <- NA
 								genotypeTable$allele.2 <- NA
+								if(approxMatching) {	# need to match column names
+									genotypeTable$allele.1.approx <- NA
+									genotypeTable$allele.2.approx <- NA
+								}
 							} else  {
 								#varAlleleMap <- makeVarAlleleMap(alleleDb, resultObject@alleleDb, alleleMarkers=markerList, varMarkers=markerList)
 								varAlleleMap <- makeVarAlleleMap(allele.variantMap=alleleDb[[thisMarker]], variant.variantMap=resultObject@alleleDb[[thisMarker]])
@@ -1253,40 +1277,40 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 
 ### ver 0.14 have removed generics for callGenotypes to make mixed use of '...' and named parameters.
 # generic method for callGenotypes.
-##' Make genotype calls
-##' 
-##' Apply a genotype call method to a table or list of tables of variant data such as the \code{markerSampleList} table of an \code{\link{mlgtResult}}.
-##'
-##' After \code{\link{mlgt}} has generated tables of the most common variants assigned in each marker/sample pair, an attempt can be made to call genotypes.
-##' This is kept separate because users might want to try different calling methods and have the option to map to a known set of alleles. Currently, only 
-##' one method is implemented (\emph{`custom'}).
-##' Methods:-
-##' \describe{
-##' 	\item{`callGenotypes.default'}{Three sequential steps for each marker/sample pair: 
-##' 		\enumerate{
-##'			\item {if the number of reads is less than \code{minTotalReads} the genotype is \emph{`tooFewReads'} }
-##'			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, then the genotype is \emph{`complexVars'}}
-##'			\item {if the difference between the counts of top two variants, expressed as a proportion of the total, is greater than or equal to \code{minPropDiffHomHetThreshold}, then the genotype is \emph{HOMOZYGOTE}. Otherwise it is \emph{HETEROZYGOTE}. }  
-##'		}
-##' 	}
-##' }
-##' 
-##' 
-##' @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
-##' @param table [Separate usage] A table of variant counts. 
-##' @param alleleDb A list of \code{\link{variantMap}} objects derived from known alleles. As made by 
-##' \code{\link{createKnownAlleleList}}
-##' @param method How to call genotypes. Currently only "callGenotypes.default" is implemented. Users can define
-##' their own methods as R functions (see the vignette).
-##' @param markerList For which of the markers do you want to call genotypes (default is all)?
-##' @param sampleList For which of the samples do you want to call genotypes (default is all)?
-##' @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
-##'
-##' @return list of call results including the call parameters and a table of calls (class \code{\link{genotypeCall}}). If an mlgtResult object was supplied then a list of \code{\link{genotypeCall}} objects will be returned, each named by marker.
-##'
-##' @export
-##' @docType methods
-##' @aliases callGenotypes.mlgtResult
+## Make genotype calls
+## 
+## Apply a genotype call method to a table or list of tables of variant data such as the \code{markerSampleList} table of an \code{\link{mlgtResult}}.
+##
+## After \code{\link{mlgt}} has generated tables of the most common variants assigned in each marker/sample pair, an attempt can be made to call genotypes.
+## This is kept separate because users might want to try different calling methods and have the option to map to a known set of alleles. Currently, only 
+## one method is implemented (\emph{`custom'}).
+## Methods:-
+## \describe{
+## 	\item{`callGenotypes.default'}{Three sequential steps for each marker/sample pair: 
+## 		\enumerate{
+##			\item {if the number of reads is less than \code{minTotalReads} the genotype is \emph{`tooFewReads'} }
+##			\item {if the difference between the sum of counts of the top two variants and the count of the third most variant, expressed as proportion of total, is less than \code{minDiffToVarThree}, then the genotype is \emph{`complexVars'}}
+##			\item {if the difference between the counts of top two variants, expressed as a proportion of the total, is greater than or equal to \code{minPropDiffHomHetThreshold}, then the genotype is \emph{HOMOZYGOTE}. Otherwise it is \emph{HETEROZYGOTE}. }  
+##		}
+## 	}
+## }
+## 
+## 
+## @param resultObject An object of class \code{\link{mlgtResult}}, as returned by \code{\link{mlgt}}
+## @param table [Separate usage] A table of variant counts. 
+## @param alleleDb A list of \code{\link{variantMap}} objects derived from known alleles. As made by 
+## \code{\link{createKnownAlleleList}}
+## @param method How to call genotypes. Currently only "callGenotypes.default" is implemented. Users can define
+## their own methods as R functions (see the vignette).
+## @param markerList For which of the markers do you want to call genotypes (default is all)?
+## @param sampleList For which of the samples do you want to call genotypes (default is all)?
+## @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
+##
+## @return list of call results including the call parameters and a table of calls (class \code{\link{genotypeCall}}). If an mlgtResult object was supplied then a list of \code{\link{genotypeCall}} objects will be returned, each named by marker.
+##
+## @export
+## @docType methods
+## @aliases callGenotypes.mlgtResult
 #setGeneric("callGenotypes",  function(resultObject, table, alleleDb=NULL, method="custom", minTotalReads=50, maxPropUniqueVars=0.8, 
 #					minPropToCall=0.1, minDiffToVarThree=0.4,
 #					minPropDiffHomHetThreshold=0.3, markerList=names(resultObject@markers),
@@ -1376,7 +1400,11 @@ writeGenotypeCallsToFile.list <- function(callList, filePrefix="genoCalls", file
 #'
 #' @export
 #' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
-#writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
+#' @examples \dontrun{ 
+#' data("mlgtResult", package="mlgt")
+#' my.genoytpes <- callGenotypes(my.mlgt.Result)
+#' writeGenotypeCallsToFile(my.genotypes)
+#' }
 setGeneric("writeGenotypeCallsToFile", function(callList, genotypeCall, filePrefix="genoCalls", file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE)	standardGeneric("writeGenotypeCallsToFile")) 
 
 setMethod("writeGenotypeCallsToFile", signature(callList="list", genotypeCall="missing", filePrefix="ANY", file="ANY", singleFile="ANY", 
@@ -1387,6 +1415,7 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 									writeParams="ANY", appendValue="ANY"), 
 			definition=writeGenotypeCallsToFile.genotypeCall )
 
+#writeGenotypeCallsToFile <- function(callList, genotypeCall, file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE) attributes(callList)
 
 
 ########################## plotting
@@ -1395,17 +1424,12 @@ setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall
 #' \code{\link{prepareMlgtRun}} produces several BLAST tables. It is instructive to plot the BLAST results and assess the performance
 #'  of different markers. 
 #'
-#' 
+#' This function is used to plot a series of histograms based on BLAST statistics.
 #' 
 #' @param blastTable The file of BLAST results.
 #' @param subject The name of a single marker
 #'
-#' @return Plots three histograms: 
-#' \enumerate{
-#' \item{Alignment length}
-#' \item{Bit score}
-#' \item{% identity}
-#' }
+#' @return Plots three histograms based on the BLAST statistics 'Alignment length', 'Bit Score' and 'Percent Identity' 
 #' @export
 #' @seealso \code{\link{printBlastResultGraphs}}
 inspectBlastResults <- function(blastTable, subject)  {
@@ -1542,6 +1566,11 @@ plotGenotypeEvidence.list <- function(callList, file) {
 #' @aliases plotGenotypeEvidence,genoytpeCall,missing,missing-method
 #' @aliases plotGenotypeEvidence,genoytpeCall,missing,character-method
 #' @rdname plotGenotypeEvidence-methods
+#' @examples \dontrun{ 
+#' data("mlgtResult", package="mlgt")
+#' my.genoytpes <- callGenotypes(my.mlgt.Result)
+#' plotGenotypeEvidence(genotypeCall=my.genotypes[["DPA1_E2"]])
+#' }
 setGeneric("plotGenotypeEvidence", function(genotypeCall, callList, file) standardGeneric("plotGenotypeEvidence"))
 
 #' @export
@@ -1878,7 +1907,11 @@ setMethod("errorCorrect", signature(mlgtResultObject="mlgtResult", alignment="mi
 #' @return A data frame for each marker listing site statistics.
 #' @seealso \code{\link{errorCorrect}}
 #' @export 
-#' 
+#' @examples \dontrun{ 
+#' data("mlgtResult", package="mlgt")
+#' alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="profile")
+#' alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist")
+#' }
 alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers), samples=mlgtResultObject@samples,
 		correctThreshold = 0.01,  consThreshold = (1 - correctThreshold), profPlotWidth = 60, fileName=NULL, method="table", warn=TRUE)  {
 
@@ -2191,7 +2224,7 @@ mergeMlgtResults.simple <- function(result1, result2) {
 #' @param projectName Do you want to provide your own projectName
 #' @param runName Do you want to provide your own runName
 #' 
-#' @value An object of class \code{\link{mlgtResult}}
+#' @return An object of class \code{\link{mlgtResult}}
 #' @export
 #'
 combineMlgtResults <- function(resultList,projectName=resultList[[1]]@projectName, runName="combinedMlgtResults")  {
@@ -2221,7 +2254,15 @@ combineMlgtResults <- function(resultList,projectName=resultList[[1]]@projectNam
 }
 
 
-
+#' @name my.mlgt.Result
+#' @title An example \code{\link{mlgtResult}} object.
+#' @description This is the result of running \code{\link{mlgt}} on the sample data given in the README.
+#' @docType data
+#' @usage my.mlgt.Result
+#' @format a \code{\link{mlgtResult}} object.
+#' @source Package mlgt
+#' @author Dave T. Gerrard, 2012-04-01
+NULL
 
 
 

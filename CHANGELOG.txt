@@ -4,7 +4,7 @@ Ver 0.14
 
 Fixed bug in alignReport causing error when only 1 or 0 sequences.
 
-Added copyIfSpaces() to copy sequence files if their path contains spaces. 
+Added copyIfSpaces() to copy original sequence files if their path contains spaces. 
 
 Added combineMlgtResults() function to combine mlgt results. Especially useful if runnning mlgt in parallel but could also be used to combine results across runs.
 
@@ -12,13 +12,17 @@ Added 'filePrefix' parameter to writeGenotypeCallsToFile, allows users to distin
 
 Reworked callGenotypes() to allow user specification of custom methods. The previous default method callGenotypes.table() is now not aliased and is named callGenotypes.default(). Removed setGeneric call for callGenotypes() as there is now only one primary method.
 
-Altered callGenotypes.default() to also check that the third most abundant variant account for  less than 10% of used sequences.
+Altered callGenotypes.default() to also check that the third most abundant variant accounts for  less than 10% of used sequences [maxPropVarThree=0.1].
 
-Reworked getSubseqsTable to use maxVarsToAlign=30 most common variants only when greater than a threshold (minTotalCount=500 ) number of raw sequences. This function now also returns an object of class 'varCount' which includes the table of variants as well as summary counts of variants and total reads. The result sub.alignments contain fewer raw variants and are much tidier. Updated mlgt() to accept the new varCount object and added new statistics as new columns in the table that appears in markerSampleList.
+Reworked getSubseqsTable to use [maxVarsToAlign=30] most common variants only when greater than a threshold [minTotalCount=500] number of raw sequences. This function now also returns an object of class 'varCount' which includes the table of variants as well as summary counts of variants and total reads. The result sub.alignments contain fewer raw variants and are much tidier. Updated mlgt() to accept the new varCount object and added new statistics as new columns in the table that appears in markerSampleList.
 
-Reworked mlgt()/getSubseqsTable() to include errorCorrection.
+Reworked mlgt()/getSubseqsTable() to include errorCorrection [errorCorrect=TRUE].
 
-Reworked mlgt()/getSubseqsTable() to include a length filter on raw variants.
+Reworked mlgt()/getSubseqsTable() to include a length filter on raw variants [minLength=70].
+
+Added similarity allele matching to callGenotypes [approxMatching=TRUE]. This uses a new internal function makeVarAlleleBlastMap() and maps variants to allele by greatest BLAST similarity. 
+
+Added 'userAlignment' parameter to createKnownAlleleList() to allow user to supply alignments with marker pre-aligned to known alleles. 
 
 Ver 0.13
 
