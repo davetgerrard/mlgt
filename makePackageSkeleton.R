@@ -5,7 +5,7 @@ setwd("C:/Users/dave/HalfStarted/mlgt/testRoxygen")
 
 # Set the correct dates in mlgt.R and DESCRIPTION
 # NO # package.skeleton(name = "mlgt", code_files="mlgt.R", force=TRUE)
-#Update DESCRIPTION FILE for VERSION
+# Update DESCRIPTION FILE for VERSION
 # delete contents of /man 
 # copy latest .R code to /R
 

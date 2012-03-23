@@ -4,7 +4,7 @@
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
 #' Version: \tab 0.15\cr
-#' Date: \tab 2012-04-01\cr
+#' Date: \tab 2012-03-23\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
