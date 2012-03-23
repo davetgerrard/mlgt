@@ -1,5 +1,12 @@
 mlgt changes
 
+Ver 0.15
+
+Fixed bug in callGenotypes that was not adding 'NA' columns using approxMatch=TRUE
+
+Corrected location of example data.
+
+
 Ver 0.14
 
 Fixed bug in alignReport causing error when only 1 or 0 sequences.
