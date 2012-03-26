@@ -1,5 +1,12 @@
 mlgt changes
 
+Ver 0.16
+
+Changes to setMethod documentation to prevent warnings in CRAN.
+
+Removed HLA/IMGT sample data. Replaced with download in README.
+
+
 Ver 0.15
 
 Fixed bug in callGenotypes that was not adding 'NA' columns using approxMatch=TRUE

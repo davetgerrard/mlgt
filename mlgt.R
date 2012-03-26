@@ -3,8 +3,8 @@
 #' \tabular{ll}{
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
-#' Version: \tab 0.15\cr
-#' Date: \tab 2012-03-23\cr
+#' Version: \tab 0.16\cr
+#' Date: \tab 2012-03-26\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
@@ -95,11 +95,15 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	
 	musclePath <- Sys.getenv("MUSCLE_PATH")
 	
+	if(nchar(musclePath) < 1) {
+			stop(paste("MUSCLE_PATH","has not been set!"))
+	}
+
 	switch(alignFormat,
 		"msf" =   {
 			alignedAlleles <- read.alignment(alignedAlleleFile, format="msf")
 			alignedAlleleFastaFile <- paste(markerName, "alignedAlleles.fasta", sep=".")
-			write.fasta(alignedAlleles[[3]], alignedAlleles[[2]], file=alignedAlleleFastaFile)
+			write.fasta(alignedAlleles[[3]], alignedAlleles[[2]], file.out=alignedAlleleFastaFile)
 			}, 
 		"fasta" = {
 			alignedAlleleFastaFile = alignedAlleleFile
@@ -113,7 +117,7 @@ createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alig
 	} else {	# align the marker to the aligned alleles.
 			
 		markerSeqFile <- paste(markerName, "markerSeq.fasta", sep=".")
-		write.fasta(markerSeq, markerName, file=markerSeqFile )
+		write.fasta(markerSeq, markerName, file.out=markerSeqFile )
 		#muscle -profile -in1 existing_aln.afa -in2 new_seq.fa -out combined.afa
 		markerToAlleleDbAlign <- paste(markerName, "allignedToAlleles.fasta", sep=".")
 		# profile alignment of marker to existing allele alignment
@@ -388,8 +392,8 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 
 	rawVariantFile <- paste("test", thisMarker, thisSample, "raw.variants.fasta",sep=".")  #"localVariants.fasta"
 	#rawVariantFile <- paste(runPath, rawVariantFileName, sep="/")
-	#v0.14# write.fasta(as.list(c(markerSeq,as.character(rawSeqCountTable$var))) ,c(thisMarker,as.character(rawSeqCountTable$var)),file=rawVariantFile ,open="w")	# align marker AND raw variants
-	write.fasta(as.list(as.character(rawSeqCountTable$var)) ,as.character(rawSeqCountTable$var),file=rawVariantFile ,open="w") 	# align just raw variants
+	#v0.14# write.fasta(as.list(c(markerSeq,as.character(rawSeqCountTable$var))) ,c(thisMarker,as.character(rawSeqCountTable$var)),file.out=rawVariantFile ,open="w")	# align marker AND raw variants
+	write.fasta(as.list(as.character(rawSeqCountTable$var)) ,as.character(rawSeqCountTable$var),file.out=rawVariantFile ,open="w") 	# align just raw variants
 
 
 	# Align all seqs
@@ -429,14 +433,14 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 			rawSeqCountTable <- rawSeqCountTable[order(rawSeqCountTable$count,decreasing=T),]
 			#cat(paste("rawSeqCountTable rows:", nrow(rawSeqCountTable), "\n"))
 			rawAlignFile.corrected <- paste("test", thisMarker, thisSample, "raw.align.corrected.fasta",sep=".")  #"localAlign.fasta"
-			#write.fasta(as.list(newAlign$seq), newAlign$nam, file=rawAlignFile.corrected )
+			#write.fasta(as.list(newAlign$seq), newAlign$nam, file.out=rawAlignFile.corrected )
 			write.fasta(as.list(rawSeqCountTable$alignedVar), rawSeqCountTable$var, file.out=rawAlignFile.corrected )
 			rawAlignFile <- rawAlignFile.corrected
 	}
 
 	#v0.14# Align marker sequence using profile alignment (not done as part of base alignment so that errorCorrect can be run on rawAlignment).
 	markerSeqFile <- paste(thisMarker, "markerSeq.fasta", sep=".")
-	write.fasta(markerSeq, thisMarker, file=markerSeqFile )
+	write.fasta(markerSeq, thisMarker, file.out=markerSeqFile )
 	rawPlusMarkerFile <- paste("test", thisMarker, thisSample, "raw.marker.align.fasta",sep=".")  #"localAlign.fasta"
 	muscleCommand <- paste(musclePath, "-profile -quiet -in1", rawAlignFile , "-in2", markerSeqFile  ,  "-out", rawPlusMarkerFile  )
 	system(muscleCommand)
@@ -450,7 +454,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 	alignedSubSeqs <- lapply(rawAlignment, FUN=function(x)	substr(x[1], subStart, subEnd))
 	subAlignFile <- paste("test", thisMarker, thisSample, "sub.align.fasta",sep=".")  #"localAlign.fasta"
 	#subAlignFile <- paste(runPath, subAlignFileName , sep="/")
-	write.fasta(alignedSubSeqs , names(alignedSubSeqs ), file=subAlignFile )
+	write.fasta(alignedSubSeqs , names(alignedSubSeqs ), file.out=subAlignFile )
 
 	alignedSubTable <- data.frame(var =  names(alignedSubSeqs ) , subSeq= as.character(unlist(alignedSubSeqs )))
 
@@ -496,7 +500,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' The basic process for each marker/sample pair is to align all unique variants using MUSCLE and then extract the alignment portion aligned to the reference marker sequence, ignoring the rest.
 #' The marker alignment is critical and \code{\link{mlgt}} has several options to optimise this alignment.
 #' If the total number of reads is less than minTotalCount, then all variants are aligned. Otherwise, only the most abundant 30 unique variants are aligned.
-#' Optionally, alignments are `error-correted' as per the separate function \code{\link{errorCorrect}}
+#' Optionally, alignments are `error-correted' as per the separate function \code{\link{errorCorrect}}. Reads shorter than 'minLength' are filtered out.
 #' 
 #' @param designObject an object of class \code{\link{mlgtDesign}}
 #' @param minTotalCount How many assigned sequences to allow before limiting the number of raw variants to allign.
@@ -707,6 +711,8 @@ mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, 
 
 }  # end of mlgt function
 
+#' @rdname mlgt-methods
+#' @aliases mlgt,mlgtDesign-method
 setMethod("mlgt",signature(designObject="mlgtDesign", maxVarsToAlign="ANY", minTotalCount="ANY", errorCorrect="ANY",correctThreshold="ANY", minLength="ANY"), definition=mlgt.mlgtDesign)
 
 #INTERNAL. Does this need documenting?
@@ -772,6 +778,7 @@ copyIfSpaces <- function(pathString)  {
 #' @return An object of class \code{\link{mlgtDesign}} is returned. Also, several BLAST dbs and sets of BLAST results are created in the working directory.
 #'	These are essential for \code{\link{mlgt}} to run.
 #'
+#' @rdname prepareMlgtRun-methods
 #' @export
 #' @aliases prepareMlgtRun.listDesign,prepareMlgtRun.mlgtDesign 
 #' @seealso \code{\link{printBlastResultGraphs}} and \code{\link{inspectBlastResults}} can only be run AFTER \code{prepareMlgtRun}.
@@ -794,6 +801,8 @@ prepareMlgtRun.listDesign <- function(projectName,runName, samples, markers,fTag
 	
 }
 
+#' @rdname prepareMlgtRun-methods
+#' @aliases prepareMlgtRun,missing,character,character,character,list,list,list,character,character-method
 setMethod("prepareMlgtRun",
 	signature(designObject="missing",projectName="character", runName="character", samples="character",markers="list", 
 	fTags="list", rTags="list", inputFastaFile="character", overwrite="character"), 
@@ -867,13 +876,13 @@ prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 	# set up blast DBs
 	cat("Setting up BLAST DBs...\n")
 
-	write.fasta(designObject@fTags, names(designObject@fTags), file=fTagsFastaFile)
+	write.fasta(designObject@fTags, names(designObject@fTags), file.out=fTagsFastaFile)
 	setUpBlastDb(fTagsFastaFile , formatdbPath, blastdbName="fTags")		# default is no index
 
-	write.fasta(designObject@rTags, names(designObject@rTags), file=rTagsFastaFile )
+	write.fasta(designObject@rTags, names(designObject@rTags), file.out=rTagsFastaFile )
 	setUpBlastDb(rTagsFastaFile , formatdbPath, blastdbName="rTags")		# default is no index
 
-	write.fasta(designObject@markers, names(designObject@markers), file=markersFastaFile )
+	write.fasta(designObject@markers, names(designObject@markers), file.out=markersFastaFile )
 	setUpBlastDb(markersFastaFile , formatdbPath, blastdbName="markerSeqs", indexDb="T") 
 
 	## input as blast DB with index (useful for fast sub-sequence retrieval?)
@@ -914,6 +923,8 @@ prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 
 
 #TODO: test if signature with overwrite="ANY" will work. First attempt, no.
+#' @rdname prepareMlgtRun-methods
+#' @aliases prepareMlgtRun,mlgtDesign,missing,missing,missing,missing,missing,missing,missing,character-method
 setMethod("prepareMlgtRun",
 	signature(designObject="mlgtDesign",projectName="missing", runName="missing", samples="missing",markers="missing", 
 	fTags="missing", rTags="missing", inputFastaFile="missing", overwrite="character"),
@@ -1398,6 +1409,7 @@ writeGenotypeCallsToFile.list <- function(callList, filePrefix="genoCalls", file
 #'
 #' @return Writes tables in the current working directory. 
 #'
+#' @rdname writeGenotypeCallsToFile-methods
 #' @export
 #' @aliases writeGenotypeCallsToFile.list,writeGenotypeCallsToFile.genotypeCall
 #' @examples \dontrun{ 
@@ -1407,10 +1419,14 @@ writeGenotypeCallsToFile.list <- function(callList, filePrefix="genoCalls", file
 #' }
 setGeneric("writeGenotypeCallsToFile", function(callList, genotypeCall, filePrefix="genoCalls", file="", singleFile=FALSE, writeParams=FALSE, appendValue=FALSE)	standardGeneric("writeGenotypeCallsToFile")) 
 
+#' @rdname writeGenotypeCallsToFile-methods
+#' @aliases writeGenotypeCallsToFile,list,missing-method
 setMethod("writeGenotypeCallsToFile", signature(callList="list", genotypeCall="missing", filePrefix="ANY", file="ANY", singleFile="ANY", 
 									writeParams="ANY", appendValue="ANY"), 
 				definition=writeGenotypeCallsToFile.list)
 
+#' @rdname writeGenotypeCallsToFile-methods
+#' @aliases writeGenotypeCallsToFile,missing,genotypeCall-method
 setMethod("writeGenotypeCallsToFile", signature(callList="missing", genotypeCall="genotypeCall", filePrefix="ANY", file="ANY", singleFile="ANY", 
 									writeParams="ANY", appendValue="ANY"), 
 			definition=writeGenotypeCallsToFile.genotypeCall )
@@ -1573,16 +1589,16 @@ plotGenotypeEvidence.list <- function(callList, file) {
 #' }
 setGeneric("plotGenotypeEvidence", function(genotypeCall, callList, file) standardGeneric("plotGenotypeEvidence"))
 
-#' @export
 #' @rdname plotGenotypeEvidence-methods
+#' @aliases plotGenotypeEvidence,missing,list,character-method
 setMethod("plotGenotypeEvidence", signature(genotypeCall="missing", callList="list", file="character"), definition=plotGenotypeEvidence.list)
 
-#' @export
 #' @rdname plotGenotypeEvidence-methods
+#' @aliases plotGenotypeEvidence,genotypeCall,missing,character-method
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="character"), definition=plotGenotypeEvidence.genotypeCall.file)
 
-#' @export
 #' @rdname plotGenotypeEvidence-methods
+#' @aliases plotGenotypeEvidence,genotypeCall,missing,missing-method
 setMethod("plotGenotypeEvidence", signature(genotypeCall="genotypeCall", callList="missing", file="missing"), definition=plotGenotypeEvidence.genotypeCall)
 
 #plotGenotypeEvidence <- function(callList, genotypeCall, file) attributes(genotypeCall)
@@ -1635,7 +1651,7 @@ stripGapColumns <- function(alignment)  {
 }
 
 
-## TODO docs, interanl
+## TODO docs, internal
 ## supply an UN-PACKKED alignment (including duplicated sequences)
 errorCorrect.alignment <- function(alignment, correctThreshold=0.01)  {
 	#alignment.corrected <- alignment
@@ -1859,15 +1875,19 @@ errorCorrect.mlgtResult  <- function(mlgtResultObject, correctThreshold=0.01)  {
 #' @param correctThreshold The maximimum Minor Allele Frequency (MAF) at which variants will be corrected. 
 #' 
 #' @return A new \code{\link{mlgtResult}} object with errors 'corrected'
+#' @rdname errorCorrect-methods
 #' @export 
 #' @seealso \code{\link{alignReport}}
 #'
-#' @aliases errorCorrect.mlgtResult,errorCorrect.alignment,errorCorrect
 setGeneric("errorCorrect", function(mlgtResultObject, alignment, correctThreshold=0.01) standardGeneric("errorCorrect")) 
 
+#' @rdname errorCorrect-methods
+#' @aliases errorCorrect,missing,list-method
 setMethod("errorCorrect", signature(mlgtResultObject="missing",alignment="list", correctThreshold="ANY"), 
 				definition=errorCorrect.alignment)
 
+#' @rdname errorCorrect-methods
+#' @aliases errorCorrect,mlgtResult,missing-method
 setMethod("errorCorrect", signature(mlgtResultObject="mlgtResult", alignment="missing", correctThreshold="ANY"), 
 				definition=errorCorrect.mlgtResult)
 
