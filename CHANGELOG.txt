@@ -1,5 +1,11 @@
 mlgt changes
 
+Ver 0.17
+
+Added numbAllelesToMatch parameter to callGenotypes() to allow matching of more than 2 alleles.
+
+Added name and sequence checks on sample, marker and barcodes. All barcodes must match in length.
+
 Ver 0.16
 
 Changes to setMethod documentation to prevent warnings in CRAN.

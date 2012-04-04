@@ -1,4 +1,113 @@
 
+
+
+
+############################# DEVEL for 0.17
+
+Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
+		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
+		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
+		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
+
+
+# Load MIDs used to mark samples
+fTagList <- read.fasta(system.file("namedBarcodes.fasta", package="mlgt"), 
+			as.string=T) 
+# Optionally, rename the barcodes to the samples used in this run
+sampleBarcodeTable <- read.delim(system.file("tableOfSampleBarcodeMapping.tab", 
+		package="mlgt"), header=T)
+names(fTagList) <- sampleBarcodeTable$sample[
+			match(names(fTagList), sampleBarcodeTable$barcode)]
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# Load the marker sequences. 
+myMarkerList <- read.fasta(system.file("HLA_namedMarkers.fasta", package="mlgt"),
+			as.string=T)	
+		
+# The fasta file of sequence reads
+inputDataFile <- system.file("sampleSequences.fasta", package="mlgt")
+
+
+setwd("C:/Users/dave/HalfStarted/mlgt/testProject/testRun")
+
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="spaceNames", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+badTags <- as.list(as.character(rTagList))
+names(badTags) <- names(rTagList)
+## either of the next two commands introduces what should be a fatal error. 
+#badTags[[1]] <- 'badBarcode1'
+#names(badTags) <- rep('sample-1',10)
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="spaceNames", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=badTags, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+
+
+my.mlgt.Result <- mlgt(my.mlgt.Design)
+
+
+
+## testing numbAllelesToMatch param
+load("C:/Users/Dave/NextGen/DNAseqLab/TestProject/newMlgt/thisRun.mlgtResult.Rdata")
+load("C:/Users/Dave/NextGen/DNAseqLab/TestProject/newMlgt/knownAlleleDb.GFmarkers.userAlign.RData")
+
+my.genotypes <- callGenotypes(my.mlgt.Result.dgM)
+my.genotypes <- callGenotypes(my.mlgt.Result.dgM, mapAlleles=T, alleleDb=knownAlleleDb.user)
+my.genotypes <- callGenotypes(my.mlgt.Result.dgM, mapAlleles=T, alleleDb=knownAlleleDb.user, numbAllelesToMatch=3 )
+my.genotypes <- callGenotypes(my.mlgt.Result.dgM, mapAlleles=T, alleleDb=knownAlleleDb.user, approxMatching=T, numbAllelesToMatch=3 )
+my.genotypes <- callGenotypes(my.mlgt.Result.dgM, mapAlleles=T, alleleDb=knownAlleleDb.user, approxMatching=T, numbAllelesToMatch=4 )	# should produce warning
+
+
+#######
+
+
+
+############################# 
+# Load MIDs used to mark samples
+fTagList <- read.fasta(system.file("namedBarcodes.fasta", package="mlgt"), 
+			as.string=T) 
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# Load the marker sequences. 
+myMarkerList <- read.fasta(system.file("HLA_namedMarkers.fasta", package="mlgt"), as.string=T)
+
+
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="spaceNames", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+
+myMarkerList <- read.fasta(system.file("HLA_namedMarkers.fasta", package="mlgt"), as.string=T)
+
+markerImgtFileTable <- read.delim(system.file("marker.imgt.msf.list.tab", package="mlgt"), header=T)
+imgtFileDir <- "C:/Users/dave/HLA/data/IMGT_manualDownload/"
+knownAlleleDb <- list()
+# takes about 2 minutes with 17 markers. 
+for(thisMarker in names(myMarkerList)) {
+	baseFile <- markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker]
+	imgtAlignFile <- paste(imgtFileDir,baseFile , sep="") 
+	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,myMarkerList[[thisMarker]][1], imgtAlignFile)
+}
+
+
+my.genotypes <- callGenotypes(my.mlgt.Result)
+
+my.genotypes <- callGenotypes(my.mlgt.Result, mapAlleles=T, alleleDb=knownAlleleDb)
+
+#############################
+
 sampleTable <- read.delim("C:/Users/dave/HalfStarted/mlgt/data/sampleMids.tab", header=T)
 
 sampleTable <- read.delim("C:/Users/dave/HalfStarted/mlgt/data/sampleMids.tab", header=T, stringsAsFactors=F)

@@ -52,7 +52,7 @@ install.packages("seqinr")
 
 To install mlgt from within R you can do this from the packages menu (Install packages from local zip files) or using this command giving the full path to the package zip archive.:- 
 <<label=Install mlgt,eval=FALSE>>=
-install.packages("mlgt_0.1.zip", repos=NULL)
+install.packages("mlgt_0.15.zip", repos=NULL)
 @
 
 \section{Using mlgt}
@@ -82,24 +82,29 @@ setwd(analysisDir)
 
 
 
-You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. Example data are in the /data sub-directory of the mlgt package installation directory and can be found using \texttt{system.file()}. Finally, specify the location of the raw sequence file (fasta format) you want to analyse (\textbf{N.B.} The path to this file MUST NOT contain whitespace.).
+You will need to create some variables to describe your sequencing run. You need a named list of the MIDs/barcodes used to mark each end of the amplicons and a list of samples. The easiest way to get this is from a fasta file containing the barcode sequences with each sequence annotated with the sample name you will use. In the example below, I load the barcodes from a common file and use a table to change the names to match the samples in this run. Example data are in the /data sub-directory of the mlgt package installation directory and can be found using \texttt{system.file()}. Finally, specify the location of the raw sequence file (fasta format) you want to analyse (\textbf{N.B.} The path to this file MUST NOT contain whitespace.).
 
 <<label=Describe run,keep.source=TRUE>>=
-system.file("data/namedBarcodes.fasta", package="mlgt")
+system.file("namedBarcodes.fasta", package="mlgt")
 
 # Load MIDs used to mark samples
-fTagList <- read.fasta(system.file("data/namedBarcodes.fasta", package="mlgt"), 
+fTagList <- read.fasta(system.file("namedBarcodes.fasta", package="mlgt"), 
 			as.string=T) 
+# Optionally, rename the barcodes to the samples used in this run
+sampleBarcodeTable <- read.delim(system.file("tableOfSampleBarcodeMapping.tab", 
+		package="mlgt"), header=T)
+names(fTagList) <- sampleBarcodeTable$sample[
+			match(names(fTagList), sampleBarcodeTable$barcode)]
 # here we're using the same tags at both ends of the amplicons.
 rTagList <- fTagList
 #The names of the samples
 sampleList <- names(fTagList)
 # Load the marker sequences. 
-myMarkerList <- read.fasta(system.file("data/HLA_namedMarkers.fasta", package="mlgt"),
+myMarkerList <- read.fasta(system.file("HLA_namedMarkers.fasta", package="mlgt"),
 			as.string=T)	
 		
 # The fasta file of sequence reads
-inputDataFile <- system.file("data/sampleSequences.fasta", package="mlgt")
+inputDataFile <- system.file("sampleSequences.fasta", package="mlgt")
 @
 
 Inspect what is stored in each variable by typing its name.
@@ -162,12 +167,12 @@ my.mlgt.Result@runSummaryTable
 
 The results for each marker are stored in a list and can be accessed indidually using the marker name.
 
-\begin{scriptsize}
+\begin{tiny}
 <<label= Inspect results for a marker >>=
 thisMarker <- "DPA1_E2"
 my.mlgt.Result@markerSampleList[[thisMarker]]
 @
-\end{scriptsize}
+\end{tiny}
 
 \subsection{Call genotypes}
 
@@ -179,7 +184,7 @@ A simple example of calling genotypes is
 my.genotypes <- callGenotypes(my.mlgt.Result)
 @
 
-the result is the same table of variant counts with new columns to represent the genotype calls. \texbf{N.B.} currently, only one method is implemented - use \texttt{?callGenotypes} to see details. I hope to allow users to define their own methods for calling genotypes (NOT YET IMPLEMENTED). 
+the result is the same table of variant counts with new columns to represent the genotype calls. \texbf{N.B.} currently, only one method is implemented but users can supply their own - use \texttt{?callGenotypes} to see details. 
 
 Once you have some genoytpes, you may want to export them to files. You can do this for individual markers or for all markers in the genotypeCall object.
 
@@ -203,20 +208,23 @@ Again, these plots can be output to file, use \texttt{?plotGenotypeEvidence} to 
 
 The previous genotype calling was done without reference to previously known alleles. To map the newly tabulated variants to known alleles, a local variantMap of known alleles must be loaded or created. \emph{mlgt} contains a function to build a list of alleles bounded by the marker sequence. \textbf{N.B.} the names of otherwise distinct alleles that are identical within the region overlapping the marker sequence are condensed to one sequence and names are concatenated. 
 
-Creating the allele map is a little more involved than other aspects but not too difficult with a little set up. You need to provide an alignment (msf or fasta format) of known alleles for each marker. This could be provided in table format in a file. The allele map should be a list with one \emph{variantMap} element per marker. Each variantMap is created by running \emph{createKnownAlleleList} to align each marker against the respective allele alignment file.
+Creating the allele map is a little more involved than other aspects but not too difficult with a little set up. You need to provide an alignment (msf or fasta format) of known alleles for each marker. The corresponding file names for each marker could be provided in table format in a file. The allele map should be a list with one \emph{variantMap} element per marker. Each variantMap is created by running \emph{createKnownAlleleList} to align each marker against the respective allele alignment file. Here, I download the alignment files direct from the HLA/IMGT ftp site into the current working directory. You might want to run this section separately in a different location because it only needs to be done once per set of markers or version of IMGT/HLA.
 
 \begin{scriptsize}
 <<label= Create a variant map from known alleles, eval=FALSE, keep.source=TRUE>>=
 
-markerImgtFileTable <- read.delim(system.file("data/marker.imgt.msf.list.tab", package="mlgt"),
-				header=T)
-
-# create a 'variantMap' object for each marker and store them all in a list.
+markerImgtFileTable <- read.delim(system.file("marker.imgt.msf.list.tab", package="mlgt"),
+ 				header=T)
+alignFilesSource <- 'ftp://ftp.ebi.ac.uk/pub/databases/imgt/mhc/hla/'
+# select a folder to store the alignments in. Here using current working directory.
+alignFilesDir <- getwd()	
+## Download the allele alignments and create a 'variantMap' object for each marker and store them all in a list.
 knownAlleleDb <- list()
- 
-for(thisMarker in names(myMarkerList)) {
-	alleleAlignFile <- system.file("data", 
-		markerImgtFileTable$imgtAlignFile[markerImgtFileTable$marker==thisMarker], package="mlgt")
+for(thisMarker in names(myMarkerList)) {	
+	fileName <-  markerImgtFileTable$imgtAlignFile[match(thisMarker, markerImgtFileTable$marker)]
+	alleleAlignUrl  <- paste(alignFilesSource , fileName , sep="/")
+	alleleAlignFile <- paste(alignFilesDir , fileName , sep="/")
+	download.file(alleleAlignUrl,alleleAlignFile)
 	knownAlleleDb[[thisMarker]] <- createKnownAlleleList(thisMarker,
 		myMarkerList[[thisMarker]][1], alleleAlignFile)
 }
@@ -245,13 +253,13 @@ To help decide if error correction would be worthwhile, several alignment report
 
 \begin{center}
 <<label=Align_Report_profile, fig=TRUE, echo=TRUE>>=
-alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="profile")
+alignReport(my.mlgt.Result,markers="DPA1_E2", samples="Sample-8", method="profile")
 @
 \end{center}
 
 \begin{center}
 <<label=Align_Report_hist, fig=TRUE, echo=TRUE>>=
-alignReport(my.mlgt.Result,markers="DPA1_E2", samples="MID-22", method="hist")
+alignReport(my.mlgt.Result,markers="DPA1_E2", samples="Sample-8", method="hist")
 @
 \end{center}
 
@@ -282,6 +290,7 @@ Once you have a genotyping system up and running you may want to compare results
 
 Here I outline a case where samples have been split across several runs and you want to combine the results before genotyping.
 
+\begin{scriptsize}
 <<label=Combine_Results>>=
 my.design.list <- list()
 my.design.list[['A']] <- my.mlgt.Design
@@ -293,6 +302,7 @@ my.result.list
 combined.result <- combineMlgtResults(my.result.list)
 combined.result
 @
+\end{scriptsize}
 
 Another opportunity to combine results comes during a parallelised mlgt run - see below.
 
@@ -301,7 +311,7 @@ The slowest part of mlgt is the mlgt() function itself. As each marker is analys
 
 The list approach can be demonstrated on a single processor (where each mlgt run happens in turn) using the lapply command.
 
-<<label=Show_list_use>>=
+<<label=Show_list_use, keep.source=TRUE>>=
 # Create a list of mlgtDesign objects, each with only one marker.
 my.design.list <- list()
 for(thisMarker in names(myMarkerList))  {
@@ -312,7 +322,8 @@ for(thisMarker in names(myMarkerList))  {
 # Use lapply to run mlgt() on each member of the list. 
 # N.B. we are using errorCorrection within mlgt(), which slows it down a bit.
 system.time(
-	my.result.list <- lapply(my.design.list, FUN=function(x) mlgt(x, errorCorrect=TRUE))
+	my.result.list <- lapply(my.design.list, 
+			FUN=function(x) mlgt(x, errorCorrect=TRUE))
 )
 @
 

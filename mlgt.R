@@ -3,8 +3,8 @@
 #' \tabular{ll}{
 #' Package: \tab mlgt\cr
 #' Type: \tab Package\cr
-#' Version: \tab 0.16\cr
-#' Date: \tab 2012-03-26\cr
+#' Version: \tab 0.17\cr
+#' Date: \tab 2012-04-04\cr
 #' Author: \tab Dave T. Gerrard <david.gerrard@@manchester.ac.uk>\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
@@ -88,7 +88,7 @@ setClass("varCount",
 #' @docType methods
 createKnownAlleleList <- function(markerName, markerSeq, alignedAlleleFile, alignFormat="msf", sourceName=alignedAlleleFile, userAlignment=FALSE)  {
 	## The aligned alleles must have unique names and the markerName must be different too. TODO: test for this.
-	## TODO put default input file format (MSF). Make check for fasta format (can skip first part if already fasta).
+	## DONE  put default input file format (MSF). Make check for fasta format (can skip first part if already fasta).
 	## clean up (remove) files. This function probably doesn't need to keep any files
 	## Use defined class for return object giving marker sequence used as reference. 
 	#alignedAlleles <- read.msf(alignedAlleleFile)
@@ -414,7 +414,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 			alignedVars <- read.fasta(rawAlignFile, as.string=T)
 			seqCounts <- rawSeqCountTable$count[match(names(alignedVars),rawSeqCountTable$var)]
 			#cat(seqCounts)
-			#TODO MUST: strip off aligned marker and add back on - do not want this to be 'corrected' to match all other seqs. 
+			#DONE MUST: strip off aligned marker and add back on - do not want this to be 'corrected' to match all other seqs. 
 			#seqCounts <- varCountTable$count
 			## important to 'unpack' the alignment so that each sequence occurs the correct number of times.
 			sampleSeqs <- rep(alignedVars , seqCounts)
@@ -476,8 +476,6 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 			subAlignUniqueCount = nrow(varCountTable), 
 			varCountTable = varCountTable)
 
-	# Make unique list, summing counts where same seq found. (easier in table than list).  
-	# ?TODO?
 	#return(varCountTable)
 	return(thisVarCount)
 
@@ -508,6 +506,7 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' @param errorCorrect Use error correection on alignment of raw variants
 #' @param correctThreshold Maximum proportion of raw reads at which (minor allele) bases and gaps are corrected.
 #' @param minLength Reads below this length are excluded (they are very likely to be primer-dimers).
+#' @param varsToName How many variants from each sample should be tracked across samples (default=3) (NOT YET IMPLEMENTED)
 #'
 #' @return an object of class \code{\link{mlgtResult}} containing all variants and their counts, a summary table (all markers) and one summary table per marker.
 #' @seealso \code{\link{prepareMlgtRun}}
@@ -516,11 +515,11 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 #' @docType methods
 #' @rdname mlgt-methods
 #' @aliases mlgt.mlgtDesign
-mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70) attributes(designObject)
+mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70, varsToName=3) attributes(designObject)
 setGeneric("mlgt")
 
 
-mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70)  {
+mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70, varsToName=3)  {
 	topHits <- getTopBlastHits("blastOut.markers.tab")
 	topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
 	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
@@ -550,160 +549,162 @@ mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, 
 	#for(thisMarker in names(markerMap)) {
 	#for(thisMarker in names(markerMap)[1:2]) {	# temp to finish off
 
-	cat(paste(thisMarker,"\n"))
-	#cat("New Version\n")
-	#thisMarker <- "DQA1_E2"
+		cat(paste(thisMarker,"\n"))
+		#cat("New Version\n")
+		#thisMarker <- "DQA1_E2"
 
-	## might need to combine all these to return a single item.
-	summaryList <- list()
-	summaryTable <- data.frame()
-	markerSequenceCount <- list("noSeq"=0)		#  BUG? requires some data otherwise won't sum properly with localSequenceCount.
-	alleleList <- list() 
-	variantList <- list()
-	alleleCount <- 1
-	markerSeq <- unlist(getSequence(designObject@markers[[thisMarker]],as.string=T))
-	varCountTableList[[thisMarker]] <- data.frame()
-	
-	for(thisSample in designObject@samples) {
-		#for(thisSample in names(pairedSampleMap)[1:4]) {
-			#print(thisSample)
+		## might need to combine all these to return a single item.
+		summaryList <- list()
+		summaryTable <- data.frame()
+		markerSequenceCount <- list("noSeq"=0)		#  BUG? requires some data otherwise won't sum properly with localSequenceCount.
+		alleleList <- list() 
+		variantList <- list()
+		alleleCount <- 1
+		markerSeq <- unlist(getSequence(designObject@markers[[thisMarker]],as.string=T))
+		varCountTableList[[thisMarker]] <- data.frame()
 
-			testPairSeqList <- intersect(pairedSampleMap[[thisSample]],union(fMarkerMap[[thisMarker]], rMarkerMap[[thisMarker]]))
-			#testPairSeqList <- intersect(pairedSampleMap[[thisSample]], markerMap[[thisMarker]])
-			#testPairSeqList <- intersect(sampleMap[[thisSample]], markerMap[[thisMarker]])
+		for(thisSample in designObject@samples) {
+			#for(thisSample in names(pairedSampleMap)[1:4]) {
+				#print(thisSample)
 
-
-		seqTable <- data.frame()
-		localAlleleNames <- c("NA","NA","NA")
-		localAlleleFreqs <- c(0,0,0)
-
-		## go through all seq's mapped to this marker/sample pair.
-		## extract the corresponding sequence delimited by the top blast hits on the primers.  IS THIS THE BEST WAY?
-		##		Simple improvement: minimum blast hit length to primer to keep. 
-
-		## internal Function
-
-		recordNoSeqs <- function(summaryTable)  {		# to record no seqs before skipping out. 
-				summaryRow <- data.frame(marker=thisMarker, sample=thisSample, 
-					rawTotal=0, rawVars=0,
-					usedTotal=0, usedVars=0,
-					numbSeqs=0,numbVars=0,
-					varName.1="NA", varFreq.1= 0,
-					varName.2="NA", varFreq.2= 0,
-					varName.3="NA", varFreq.3= 0)
-				summaryTable <- rbind(summaryTable, summaryRow)
-				return(summaryTable)
-		}
+				testPairSeqList <- intersect(pairedSampleMap[[thisSample]],union(fMarkerMap[[thisMarker]], rMarkerMap[[thisMarker]]))
+				#testPairSeqList <- intersect(pairedSampleMap[[thisSample]], markerMap[[thisMarker]])
+				#testPairSeqList <- intersect(sampleMap[[thisSample]], markerMap[[thisMarker]])
 
 
+			seqTable <- data.frame()
+			localAlleleNames <- c("NA","NA","NA")
+			localAlleleFreqs <- c(0,0,0)
 
-		if(length(testPairSeqList) < 1) {
-			#summaryList[[thisMarker]][[thisSample]] <- NA	
-			summaryTable  <- recordNoSeqs(summaryTable)
-			next ;	# skip to next sample
-		} 
+			## go through all seq's mapped to this marker/sample pair.
+			## extract the corresponding sequence delimited by the top blast hits on the primers.  IS THIS THE BEST WAY?
+			##		Simple improvement: minimum blast hit length to primer to keep. 
 
-		## Ver. 0.14 - edited getSubSeqsTable to return object of class 'varCount' , which includes the required table.
-		# seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
-		thisVarCount <-  getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq, 
-					maxVarsToAlign=maxVarsToAlign, minTotalCount=minTotalCount, errorCorrect=errorCorrect, 
-					correctThreshold=correctThreshold, minLength=minLength)
-		seqTable <- thisVarCount@varCountTable		
-
-		#cat(paste("Raw total:",thisVarCount@rawTotal,"\n"))
-
-		# if no sequences returned, nothing to process. 
-		if(nrow(seqTable) < 1 )  {
-			summaryTable  <- recordNoSeqs(summaryTable)
-			#summaryList[[thisMarker]][[thisSample]] <- NA	
-			next ;		# go to next sample.
-		}
-
-		# store sequence and count of sequence as alignedVar (needed for alignment report)
-		varCountTableList[[thisMarker]][seqTable$alignedVar,thisSample] <- seqTable$count
-		#varCountTableList[[thisMarker]][seqTable$var,thisSample] <- seqTable$count
-
-		#localSequenceMap <- split(seqTable[,2], seqTable[,1])
-
-		#localSequenceCount <- lapply(localSequenceMap , length)  # list named by sequence with counts.
-		#localSequenceCount <- localSequenceCount[order(as.numeric(localSequenceCount), decreasing=T)]
-
-		## test if variants are novel. 
-		## Give allele names?  
-		## Do with first three for now. 
+			## internal Function
+			
+			# TODO: use varsToName to determine columns varName.x and varFreq.x
+			recordNoSeqs <- function(summaryTable)  {		# to record no seqs before skipping out. 
+					summaryRow <- data.frame(marker=thisMarker, sample=thisSample, 
+						rawTotal=0, rawVars=0,
+						usedTotal=0, usedVars=0,
+						numbSeqs=0,numbVars=0,
+						varName.1="NA", varFreq.1= 0,
+						varName.2="NA", varFreq.2= 0,
+						varName.3="NA", varFreq.3= 0)
+					summaryTable <- rbind(summaryTable, summaryRow)
+					return(summaryTable)
+			}
 
 
-		alToRecord <- min(3,nrow(seqTable))
-		if(alToRecord > 0)  {
-			for (a in 1:alToRecord )  {
-				if(is.null(variantList[[seqTable$var[a]]]))  {    	# novel
-					alleleName <- paste(thisMarker, alleleCount,sep=".")	
-					variantList[[seqTable$var[a]]] <- alleleName
-					localAlleleNames[a] <- alleleName 
-					localAlleleFreqs[a] <- seqTable$count[a]
-					alleleCount <- alleleCount + 1
-				} else  {										# pre-existing alllele
-					localAlleleNames[a] <- variantList[[seqTable$var[a]]]
-					localAlleleFreqs[a] <- seqTable$count[a]		
+
+			if(length(testPairSeqList) < 1) {
+				#summaryList[[thisMarker]][[thisSample]] <- NA	
+				summaryTable  <- recordNoSeqs(summaryTable)
+				next ;	# skip to next sample
+			} 
+
+			## Ver. 0.14 - edited getSubSeqsTable to return object of class 'varCount' , which includes the required table.
+			# seqTable <- getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq)
+			thisVarCount <-  getSubSeqsTable(thisMarker, thisSample, pairedSampleMap, fMarkerMap,rMarkerMap, markerSeq, 
+						maxVarsToAlign=maxVarsToAlign, minTotalCount=minTotalCount, errorCorrect=errorCorrect, 
+						correctThreshold=correctThreshold, minLength=minLength)
+			seqTable <- thisVarCount@varCountTable		
+
+			#cat(paste("Raw total:",thisVarCount@rawTotal,"\n"))
+
+			# if no sequences returned, nothing to process. 
+			if(nrow(seqTable) < 1 )  {
+				summaryTable  <- recordNoSeqs(summaryTable)
+				#summaryList[[thisMarker]][[thisSample]] <- NA	
+				next ;		# go to next sample.
+			}
+
+			# store sequence and count of sequence as alignedVar (needed for alignment report)
+			varCountTableList[[thisMarker]][seqTable$alignedVar,thisSample] <- seqTable$count
+			#varCountTableList[[thisMarker]][seqTable$var,thisSample] <- seqTable$count
+
+			#localSequenceMap <- split(seqTable[,2], seqTable[,1])
+
+			#localSequenceCount <- lapply(localSequenceMap , length)  # list named by sequence with counts.
+			#localSequenceCount <- localSequenceCount[order(as.numeric(localSequenceCount), decreasing=T)]
+
+			## test if variants are novel. 
+			## Give allele names?  
+			## Do with first three for now. 
+
+			# TODO: use varsToName to determine alToRecord 
+			alToRecord <- min(3,nrow(seqTable))		# required to cope with fewer than n variants.
+			if(alToRecord > 0)  {
+				for (a in 1:alToRecord )  {
+					if(is.null(variantList[[seqTable$var[a]]]))  {    	# novel
+						alleleName <- paste(thisMarker, alleleCount,sep=".")	
+						variantList[[seqTable$var[a]]] <- alleleName
+						localAlleleNames[a] <- alleleName 
+						localAlleleFreqs[a] <- seqTable$count[a]
+						alleleCount <- alleleCount + 1
+					} else  {										# pre-existing alllele
+						localAlleleNames[a] <- variantList[[seqTable$var[a]]]
+						localAlleleFreqs[a] <- seqTable$count[a]		
+					}
 				}
 			}
+
+
+			# sequence correction?  
+
+
+			# compile stats
+
+			if(nrow(seqTable) >0 )  {	# cannot allow assignment from empty list as messes up class of list for remaining iterations
+				summaryList[[thisMarker]] <- list()
+				summaryList[[thisMarker]][[thisSample]] <- seqTable
+			}
+
+			# TODO: use varsToName to determine varName and varFreq columns.
+			summaryRow <- data.frame(marker=thisMarker, sample=thisSample, 
+						rawTotal=thisVarCount@rawTotal, rawVars=thisVarCount@rawUniqueCount,
+						usedTotal=thisVarCount@usedRawTotal, usedVars=thisVarCount@usedRawUniqueCount,
+						numbSeqs=sum(seqTable$count),numbVars=nrow(seqTable),
+						varName.1=localAlleleNames[1], varFreq.1= localAlleleFreqs[1],
+						varName.2=localAlleleNames[2], varFreq.2= localAlleleFreqs[2],
+						varName.3=localAlleleNames[3], varFreq.3= localAlleleFreqs[3])
+			summaryTable <- rbind(summaryTable, summaryRow)
+
+			#sequence count across samples? 
+			# need to sum from summaryTable or from summaryList.
+			#markerSequenceCount <- 
+			#as.list(colSums(merge(m, n, all = TRUE), na.rm = TRUE))  # not working
+			localSequenceCount <- as.list(seqTable$count)
+			names(localSequenceCount) <- seqTable$var
+			markerSequenceCount   <- as.list(colSums(merge(markerSequenceCount  , localSequenceCount,  all = TRUE), na.rm = TRUE))
+			# might need to instantiate the markerSequenceCount if empty. 
+
+
+
+		}  # end of sample loop
+
+		markerSampleList[[thisMarker]] <- summaryTable
+		## DONE: min(nchar(names(variantList))) throws warning when no variants in list. (Inf/-Inf)
+		minVarLength <- ifelse(length(markerSequenceCount) < 1, NA, min(nchar(names(markerSequenceCount))) )
+		maxVarLength <- ifelse(length(markerSequenceCount) < 1, NA, max(nchar(names(markerSequenceCount))) )
+		minAleLength <- ifelse(length(variantList) < 1, NA, min(nchar(names(variantList))) )
+		maxAleLength <- ifelse(length(variantList) < 1, NA, max(nchar(names(variantList))) )
+
+		runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
+						minVariantLength=minVarLength, 
+						maxVariantLength=maxVarLength,
+						minAlleleLength=minAleLength, maxAlleleLength=maxAleLength )
+		runSummaryTable <- rbind(runSummaryTable, runSummaryRow)
+		if(length(variantList) > 0)  {
+			# This line replaced. Not entirely tested the repurcussions. e.g. makeVarAlleleMap()?
+			#alleleDb[[thisMarker]] <- variantList   # LATER: separate lists for alleles and variants? 
+			#alleleDb[[thisMarker]] <- list(reference=as.SeqFastadna(markerSeq, thisMarker), alleleMap=variantList, inputAlleleCount = length(unlist(variantList)), uniqueSubAlleleCount=length(variantList))
+			alleleDb[[thisMarker]] <- new("variantMap", reference=as.SeqFastadna(markerSeq, thisMarker), 
+								variantSource=paste(designObject@projectName, designObject@runName,sep="."),
+								variantMap=variantList, inputVariantCount = length(unlist(variantList)), uniqueSubVariantCount=length(variantList))
 		}
 
-
-		# sequence correction?  
-
-
-		# compile stats
-
-		if(nrow(seqTable) >0 )  {	# cannot allow assignment from empty list as messes up class of list for remaining iterations
-			summaryList[[thisMarker]] <- list()
-			summaryList[[thisMarker]][[thisSample]] <- seqTable
-		}
-
-		summaryRow <- data.frame(marker=thisMarker, sample=thisSample, 
-					rawTotal=thisVarCount@rawTotal, rawVars=thisVarCount@rawUniqueCount,
-					usedTotal=thisVarCount@usedRawTotal, usedVars=thisVarCount@usedRawUniqueCount,
-					numbSeqs=sum(seqTable$count),numbVars=nrow(seqTable),
-					varName.1=localAlleleNames[1], varFreq.1= localAlleleFreqs[1],
-					varName.2=localAlleleNames[2], varFreq.2= localAlleleFreqs[2],
-					varName.3=localAlleleNames[3], varFreq.3= localAlleleFreqs[3])
-		summaryTable <- rbind(summaryTable, summaryRow)
-
-		#sequence count across samples? 
-		# need to sum from summaryTable or from summaryList.
-		#markerSequenceCount <- 
-		#as.list(colSums(merge(m, n, all = TRUE), na.rm = TRUE))  # not working
-		localSequenceCount <- as.list(seqTable$count)
-		names(localSequenceCount) <- seqTable$var
-		markerSequenceCount   <- as.list(colSums(merge(markerSequenceCount  , localSequenceCount,  all = TRUE), na.rm = TRUE))
-		# might need to instantiate the markerSequenceCount if empty. 
-
-
-
-	}  # end of sample loop
-
-	markerSampleList[[thisMarker]] <- summaryTable
-	## DONE: min(nchar(names(variantList))) throws warning when no variants in list. (Inf/-Inf)
-	minVarLength <- ifelse(length(markerSequenceCount) < 1, NA, min(nchar(names(markerSequenceCount))) )
-	maxVarLength <- ifelse(length(markerSequenceCount) < 1, NA, max(nchar(names(markerSequenceCount))) )
-	minAleLength <- ifelse(length(variantList) < 1, NA, min(nchar(names(variantList))) )
-	maxAleLength <- ifelse(length(variantList) < 1, NA, max(nchar(names(variantList))) )
-
-	runSummaryRow <- data.frame(marker=thisMarker, assignedSeqs=sum(summaryTable$numbSeqs), assignedVariants=sum(summaryTable$numbVars), 
-					minVariantLength=minVarLength, 
-					maxVariantLength=maxVarLength,
-					minAlleleLength=minAleLength, maxAlleleLength=maxAleLength )
-	runSummaryTable <- rbind(runSummaryTable, runSummaryRow)
-	if(length(variantList) > 0)  {
-		# This line replaced. Not entirely tested the repurcussions. e.g. makeVarAlleleMap()?
-		#alleleDb[[thisMarker]] <- variantList   # LATER: separate lists for alleles and variants? 
-		#alleleDb[[thisMarker]] <- list(reference=as.SeqFastadna(markerSeq, thisMarker), alleleMap=variantList, inputAlleleCount = length(unlist(variantList)), uniqueSubAlleleCount=length(variantList))
-		alleleDb[[thisMarker]] <- new("variantMap", reference=as.SeqFastadna(markerSeq, thisMarker), 
-							variantSource=paste(designObject@projectName, designObject@runName,sep="."),
-							variantMap=variantList, inputVariantCount = length(unlist(variantList)), uniqueSubVariantCount=length(variantList))
-	}
-
-}  # end of marker loop
+	}  # end of marker loop
 	
 	localMlgtResult <- new("mlgtResult", designObject,  runSummaryTable=runSummaryTable , alleleDb=alleleDb, markerSampleList=markerSampleList,
 						varCountTables=varCountTableList)
@@ -713,7 +714,7 @@ mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, 
 
 #' @rdname mlgt-methods
 #' @aliases mlgt,mlgtDesign-method
-setMethod("mlgt",signature(designObject="mlgtDesign", maxVarsToAlign="ANY", minTotalCount="ANY", errorCorrect="ANY",correctThreshold="ANY", minLength="ANY"), definition=mlgt.mlgtDesign)
+setMethod("mlgt",signature(designObject="mlgtDesign", maxVarsToAlign="ANY", minTotalCount="ANY", errorCorrect="ANY",correctThreshold="ANY", minLength="ANY", varsToName="ANY"), definition=mlgt.mlgtDesign)
 
 #INTERNAL. Does this need documenting?
 # Create a local BLAST db 
@@ -872,6 +873,25 @@ prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 		if(!overWriteBaseData) {stop("This folder already contains mlgt run files. Exiting")}
 	}					
 
+	cat("Checking parameters...\n")
+	#check names and sequences of samples, markers, and barcodes for duplication. Check barcodes for consistent length
+	fMinTagSize <- min(nchar(designObject@fTags))
+	if(!all(nchar(designObject@fTags) == fMinTagSize )) {
+		stop("fTags (barcodes) must all be of same length\n")
+	}
+	rMinTagSize <- min(nchar(designObject@rTags))
+	if(!all(nchar(designObject@rTags) == rMinTagSize )) {
+		stop("rTags (barcodes) must all be of same length\n")
+	}
+	if(anyDuplicated(as.character(designObject@fTags)) > 0 ) stop("Duplicated fTag sequences\n")
+	if(anyDuplicated(names(designObject@fTags)) > 0 ) stop("Duplicated fTag names\n")
+	if(anyDuplicated(as.character(designObject@rTags)) > 0 ) stop("Duplicated rTag sequences\n")
+	if(anyDuplicated(names(designObject@rTags)) > 0 ) stop("Duplicated rTag names\n")
+	if(anyDuplicated(as.character(designObject@markers)) > 0 ) stop("Duplicated marker sequences\n")
+	if(anyDuplicated(names(designObject@markers)) > 0 ) stop("Duplicated marker names\n")
+	if(anyDuplicated(designObject@samples) > 0 ) stop("Duplicated sample names\n")
+
+
 	#runPath <- getwd()
 	# set up blast DBs
 	cat("Setting up BLAST DBs...\n")
@@ -892,13 +912,13 @@ prepareMlgtRun.mlgtDesign <- function(designObject, overwrite="prompt")  {
 	# run preliminary blast
 	cat("Running BLAST searches...\n")
 	
-	rMinTagSize <- 10	# limit blast hits to perfect matches.		### TODO: SET GLOBALLY
+	#rMinTagSize <- 10	# limit blast hits to perfect matches.		### TODO: SET GLOBALLY
 	dbName <- "rTags"
 
 	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", rMinTagSize  ,"-m 8 -b 2 -S 3 -o", rTagsBlastOutFile )
 	system(blastCommand )
 
-	fMinTagSize <- 10	# limit blast hits to perfect matches.
+	#fMinTagSize <- 10	# limit blast hits to perfect matches.
 	dbName <- "fTags"
 
 	blastCommand <- paste(blastAllPath , "-p blastn -d", dbName , "-i", inputFastaFile , "-W", fMinTagSize ,"-m 8 -b 2 -S 3 -o", fTagsBlastOutFile )
@@ -1167,6 +1187,7 @@ callGenotypes.custom <- function(table) {
 #' @param sampleList For which of the samples do you want to call genotypes (default is all)?
 #' @param mapAlleles FALSE/TRUE. Whether to map variants to db \option{alleleDb} of known alleles. 
 #' @param approxMatching If TRUE, a BLAST search is also performed to find matches (slower). Additional columns are added to the genoytpeTable
+#' @param numbAllelesToMatch How many of the named variants should be matched to the alleleDb. Default=2.
 #' @param ... Other parameter values will be passed to custom methods such as \code{\link{callGenotypes.default}}
 #'
 #' @return list of call results including the call parameters and a table of calls (class \code{\link{genotypeCall}}). If an mlgtResult object was supplied then a list of \code{\link{genotypeCall}} objects will be returned, each named by marker.
@@ -1190,7 +1211,8 @@ callGenotypes.custom <- function(table) {
 #' }
 callGenotypes <- function(resultObject,  method="callGenotypes.default",  
 					markerList=names(resultObject@markers),
-					sampleList=resultObject@samples, mapAlleles=FALSE, alleleDb=NULL, approxMatching=FALSE, ...	) {
+					sampleList=resultObject@samples, mapAlleles=FALSE, alleleDb=NULL, approxMatching=FALSE,
+					numbAllelesToMatch=2, ...	) {
 
 	## FM requested marker specific parameters.
 	## test for vectors in any of the calling parameters. 	
@@ -1216,6 +1238,7 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 			thisMarker <- markerList[i]	
 			subTable <- resultObject@markerSampleList[[thisMarker]]
 			subTable <- subTable[match(sampleList,subTable$sample),]	
+			numbAllelesToMatch.used <- numbAllelesToMatch
 			if(nrow(subTable) < 1)  {
 				# do nothing with this marker
 				warning(paste("No data for:",thisMarker))
@@ -1224,6 +1247,11 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 				thisParamList[['table']] <- subTable
 				genotypeTable <- do.call(method, thisParamList )
 				
+				countNamedVars <- max(as.numeric(sub('varName.','',names(genotypeTable)[grep('varName',names(genotypeTable))])))
+				if(countNamedVars < numbAllelesToMatch)  {
+					warning(paste("Cannot match more variants than already have names:", thisMarker))
+					numbAllelesToMatch.used <- countNamedVars 
+				}
 				#genotypeTable <- callGenotypes.table(subTable , alleleDb=alleleDb, method=method,minTotalReads=minTotalReads[i], 
 				#	minDiffToVarThree=minDiffToVarThree[i],
 				#	minPropDiffHomHetThreshold=minPropDiffHomHetThreshold[i], mapAlleles=mapAlleles)
@@ -1240,36 +1268,52 @@ callGenotypes <- function(resultObject,  method="callGenotypes.default",
 					}	else {
 						if(is.null(alleleDb[[thisMarker]])) {
 							warning(paste("No known alleles for",thisMarker))
-							genotypeTable$allele.1 <- "noKnownAlleles"
-							genotypeTable$allele.2 <- "noKnownAlleles"
+							for(k in 1:numbAllelesToMatch.used) {
+								#genotypeTable$allele.1 <- "noKnownAlleles"
+								#genotypeTable$allele.2 <- "noKnownAlleles"
+								genotypeTable[paste('allele',k,sep=".")] <- "noKnownAlleles"
+							}
 							if(approxMatching) {	# need to match column names
-								genotypeTable$allele.1.approx <- NA
-								genotypeTable$allele.2.approx <- NA
+								for(k in 1:numbAllelesToMatch.used) {
+									genotypeTable[paste('allele',k,'approx',sep=".")] <- NA
+								}
+								#genotypeTable$allele.1.approx <- NA
+								#genotypeTable$allele.2.approx <- NA
 							}
 						} else  {
 							if(is.null(resultObject@alleleDb[[thisMarker]])) {
 								warning(paste("No variants for",thisMarker))
-								genotypeTable$allele.1 <- NA
-								genotypeTable$allele.2 <- NA
+								#genotypeTable$allele.1 <- NA
+								#genotypeTable$allele.2 <- NA
+								for(k in 1:numbAllelesToMatch.used) {
+									genotypeTable[paste('allele',k,sep=".")] <- NA
+								}
 								if(approxMatching) {	# need to match column names
-									genotypeTable$allele.1.approx <- NA
-									genotypeTable$allele.2.approx <- NA
+									for(k in 1:numbAllelesToMatch.used) {
+										genotypeTable[paste('allele',k,'approx',sep=".")] <- NA
+									}
 								}
 							} else  {
 								#varAlleleMap <- makeVarAlleleMap(alleleDb, resultObject@alleleDb, alleleMarkers=markerList, varMarkers=markerList)
 								varAlleleMap <- makeVarAlleleMap(allele.variantMap=alleleDb[[thisMarker]], variant.variantMap=resultObject@alleleDb[[thisMarker]])
-								genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
-								genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
-
+								#genotypeTable$allele.1 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.1, varAlleleMap$varNames)]
+								#genotypeTable$allele.2 <- varAlleleMap$knownAlleles[match(genotypeTable$varName.2, varAlleleMap$varNames)]
+								for(k in 1:numbAllelesToMatch.used) {
+									#cat(paste('varName',k,sep="."))
+									genotypeTable[paste('allele',k,sep=".")] <- varAlleleMap$knownAlleles[match(genotypeTable[,paste('varName',k,sep=".")], varAlleleMap$varNames)]
+								}
 								if(approxMatching) {	# perform approx matching by BLAST
 									cat("Attempting to find approximate matches using BLAST\n")
 									varAlleleBlastMap <- makeVarAlleleBlastMap(allele.variantMap=alleleDb[[thisMarker]], variant.variantMap=resultObject@alleleDb[[thisMarker]])
-									genotypeTable$allele.1.approx <- varAlleleBlastMap$subject[match(genotypeTable$varName.1, varAlleleBlastMap$query)]
-									genotypeTable$allele.2.approx <- varAlleleBlastMap$subject[match(genotypeTable$varName.2, varAlleleBlastMap$query)]
+									for(k in 1:numbAllelesToMatch.used) {
+										genotypeTable[paste('allele',k,'approx',sep=".")] <- varAlleleBlastMap$subject[match(genotypeTable[,paste('varName',k,sep=".")], varAlleleBlastMap$query)]
+
+									}
+									#genotypeTable$allele.1.approx <- varAlleleBlastMap$subject[match(genotypeTable$varName.1, varAlleleBlastMap$query)]
+									#genotypeTable$allele.2.approx <- varAlleleBlastMap$subject[match(genotypeTable$varName.2, varAlleleBlastMap$query)]
 								}
 							}
 						}
-
 					}
 				}
 				callResults[[thisMarker]] <- new("genotypeCall", 
