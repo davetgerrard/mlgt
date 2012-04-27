@@ -1,6 +1,43 @@
+############################# DEVEL for 0.18
+
+library(seqinr)
+
+Sys.setenv(BLASTALL_PATH="C:/Users/Public/Apps/Blast/bin/blastall.exe",
+		FORMATDB_PATH="C:/Users/Public/Apps/Blast/bin/formatdb.exe",
+		FASTACMD_PATH="C:/Users/Public/Apps/Blast/bin/fastacmd.exe",
+		MUSCLE_PATH="C:/Users/Public/Apps/Muscle/muscle3.8.31_i86win32.exe")
 
 
 
+
+setwd("C:/Users/Dave/HalfStarted/mlgt/testProject/testRun")
+
+source("C:/Users/Dave/HalfStarted/mlgt/mlgt.R")
+
+
+# Load MIDs used to mark samples
+fTagList <- read.fasta(system.file("namedBarcodes.fasta", package="mlgt"), as.string=T) 
+# Optionally, rename the barcodes to the samples used in this run
+sampleBarcodeTable <- read.delim(system.file("tableOfSampleBarcodeMapping.tab", package="mlgt"), header=T)
+names(fTagList) <- sampleBarcodeTable$sample[match(names(fTagList), sampleBarcodeTable$barcode)]
+# here we're using the same tags at both ends of the amplicons.
+rTagList <- fTagList
+#The names of the samples
+sampleList <- names(fTagList)
+# Load the marker sequences. 
+myMarkerList <- read.fasta(system.file("HLA_namedMarkers.fasta", package="mlgt"),as.string=T)	
+# The fasta file of sequence reads
+inputDataFile <- system.file("sampleSequences.fasta", package="mlgt")
+
+
+my.mlgt.Design <- prepareMlgtRun(projectName="myProject", 
+				runName="spaceNames", samples=sampleList, 
+				markers=myMarkerList, fTags=fTagList, 
+				rTags=rTagList, inputFastaFile=inputDataFile, 
+				overwrite="yes")
+
+
+my.mlgt.Result <- mlgt(my.mlgt.Design)
 
 ############################# DEVEL for 0.17
 

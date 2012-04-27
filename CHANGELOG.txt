@@ -1,5 +1,9 @@
 mlgt changes
 
+Ver 0.18
+
+Altered mlgt() to allow different 5-prime and 3-prime MIDs.
+
 Ver 0.17
 
 Added numbAllelesToMatch parameter to callGenotypes() to allow matching of more than 2 alleles.

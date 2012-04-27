@@ -525,13 +525,17 @@ mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, 
 	fMarkerMap <- split(as.character(topHits$query[topHits$strand==1]), topHits$subject[topHits$strand==1])
 	rMarkerMap <- split(as.character(topHits$query[topHits$strand==2]), topHits$subject[topHits$strand==2])
 
+	## DONE: alter this section to allow different MIDs at either end and, hence, use result from both "blastOut.rTags.tab" and "blastOut.fTags.tab"
+	## when f and r MIDs are the same, the "blastOut.rTags.tab" and "blastOut.fTags.tab" will produce the same topHIts. 
+	## when f and r MIDs are different, these files will differ and need to be combined.
 	## NEED TO MAKE SAMPLEMAP WITH HITS TO MID IN BOTH FORWARD AND REVERSE STRANDS like marker hits are split.
 	## Requires retention of 2 blast hits per sequence.
-	topSampleHits <- read.delim("blastOut.rTags.tab", header=F)
-	names(topSampleHits ) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
-	topSampleHits$strand <- ifelse(topSampleHits$s.end > topSampleHits$s.start, 1,2)
-	fSampleMap <- split(as.character(topSampleHits$query[topSampleHits$strand==1]), topSampleHits$subject[topSampleHits$strand==1])
-	rSampleMap <- split(as.character(topSampleHits$query[topSampleHits$strand==2]), topSampleHits$subject[topSampleHits$strand==2])
+	rTopSampleHits <- read.delim("blastOut.rTags.tab", header=F)
+	names(rTopSampleHits) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
+	rSampleMap <- split(as.character(rTopSampleHits$query), rTopSampleHits$subject)
+	fTopSampleHits <- read.delim("blastOut.fTags.tab", header=F)
+	names(rTopSampleHits) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
+	rSampleMap <- split(as.character(rTopSampleHits$query), rTopSampleHits$subject)
 	# combind sampleMaps to give sequences with MIDs in both orientations.
 	pairedSampleMap <- lapply(names(fSampleMap), FUN=function(x) intersect(fSampleMap[[x]], rSampleMap[[x]]))
 	names(pairedSampleMap) <- names(fSampleMap)
