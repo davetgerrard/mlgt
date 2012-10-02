@@ -534,8 +534,8 @@ mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, 
 	names(rTopSampleHits) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
 	rSampleMap <- split(as.character(rTopSampleHits$query), rTopSampleHits$subject)
 	fTopSampleHits <- read.delim("blastOut.fTags.tab", header=F)
-	names(rTopSampleHits) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
-	rSampleMap <- split(as.character(rTopSampleHits$query), rTopSampleHits$subject)
+	names(fTopSampleHits) <- c("query", "subject", "percentId", "aliLength", "mismatches", "gapOpenings", "q.start","q.end", "s.start","s.end", "p_value", "e_value")
+	fSampleMap <- split(as.character(fTopSampleHits$query), fTopSampleHits$subject)
 	# combind sampleMaps to give sequences with MIDs in both orientations.
 	pairedSampleMap <- lapply(names(fSampleMap), FUN=function(x) intersect(fSampleMap[[x]], rSampleMap[[x]]))
 	names(pairedSampleMap) <- names(fSampleMap)
