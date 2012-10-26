@@ -8,6 +8,7 @@ setwd("C:/Users/dave/HalfStarted/mlgt/testRoxygen")
 # Update DESCRIPTION FILE for VERSION
 # delete contents of /man 
 # copy latest .R code to /R
+# copy CHANGELOG.txt to /
 
 roxygenize("mlgt", unlink.target=T)
 
