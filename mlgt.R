@@ -467,7 +467,6 @@ getSubSeqsTable <- function(thisMarker, thisSample, sampleMap, fMarkerMap,rMarke
 
 
 
-
 	thisVarCount <- new("varCount", rawTotal=totalRaw,
 			rawUniqueCount = rawVariantCount ,
 			usedRawTotal = usedTotalRaw,
@@ -519,6 +518,15 @@ mlgt <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrec
 setGeneric("mlgt")
 
 
+# TODO: use varsToName to determine columns varName.x and varFreq.x
+# TODO: use varsToName to determine alToRecord 
+# e.g.	varNamedDataFrame <- function(varName, n) {
+#	 		as.data.frame(matrix(NA, nrow=1, ncol=n,dimnames=list(NULL,paste("varName", 1:n, sep="."))))
+#		}
+#test <- varNamedDataFrame(allele, 3)		# then use cbind.
+# TODO: replace use of "NA" with NA
+# TODO: varCountTables=varCountTableList  Seems to be allowing repeats of some sequences if their alignments hold different '-' gap positions.
+# TODO: 	Not a problem for variantMap, which uses ungapped sequence, but untidy all the same.
 mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, errorCorrect=FALSE,correctThreshold=0.01, minLength=70, varsToName=3)  {
 	topHits <- getTopBlastHits("blastOut.markers.tab")
 	topHits$strand <- ifelse(topHits$s.end > topHits$s.start, 1,2)
@@ -624,6 +632,8 @@ mlgt.mlgtDesign <- function(designObject, maxVarsToAlign=30, minTotalCount=500, 
 			}
 
 			# store sequence and count of sequence as alignedVar (needed for alignment report)
+			# TODO: this could be source of error as alignedVar is not ALWAYS the same across samples for same variant.
+			#		return to using seqTable$var BUT need another way of producing alignment report
 			varCountTableList[[thisMarker]][seqTable$alignedVar,thisSample] <- seqTable$count
 			#varCountTableList[[thisMarker]][seqTable$var,thisSample] <- seqTable$count
 
@@ -1164,7 +1174,9 @@ callGenotypes.custom <- function(table) {
 
 
 
-
+## TODO: split callGenotypes into subfunctions. Perform alleles matching and approx allele matching first if elected.
+##		Then do the parameter estimatation and HOM/HET calls.
+##		Then choose the representative alleles (use.1, use.2) and give sequences.
 ## To make this customisable, would need to include '...' as first argument so that users can add in variables. T
 ## This function would then pass those variables to the user supplied function 
 ## Some rules will have to be made on required input and output. 
@@ -1940,7 +1952,10 @@ setMethod("errorCorrect", signature(mlgtResultObject="mlgtResult", alignment="mi
 				definition=errorCorrect.mlgtResult)
 
 
-
+# TODO: rewrite alignReport() so that it does not rely upon varCountTables.
+# 	Use re-alignment through muscle. Seems very slow.
+# 	ALT: store alignments within mlgtResult - gonna be huge, for limited return.
+#	ALT.2: store a varCountTable and an AlignedVarTable (the second would be larger but could be used to reconstruct any alignment for any sample/marker.
 ## Generate stats per site along the alignments. WITHIN a marker/sample pair.
 ## DONE: Docs needed, add e.g. to README
 ## This function is a bit weird in that it collects a table of info and, optionally, generates some graphs.
@@ -2108,7 +2123,7 @@ alignReport <- function(mlgtResultObject, markers=names(mlgtResultObject@markers
 }
 
 
-
+## TODO: as per alleleReport() above, need to use proper varCountTable with ungapped sequences.
 ## DONE docs, README entry
 ## Examples
 ## dumpVariants(my.mlgt.Result,fileSuffix="variantDump.fasta")
@@ -2162,7 +2177,7 @@ dumpVariants <- function(mlgtResultObject, markers=names(mlgtResultObject@marker
 }
 
 
-
+# TODO: as alignReport() above, use true ungapped varCountTable 
 ## used by combineMlgtResults()
 mergeMlgtResults.complex <- function(result1, result2) {
 	master <- result1
